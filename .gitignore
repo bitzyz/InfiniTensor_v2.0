@@ -44,3 +44,9 @@ build_debug/
 *.onnx
 *.pb
 *.npy
+
+# InfiniCore
+InfiniCore/
+
+# script
+*.sh

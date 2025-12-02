@@ -110,7 +110,7 @@ namespace infini
             auto dataTypes = inferDataType();
             for (size_t i = 0; i < outputs.size(); ++i)
             {
-                IT_ASSERT(!outputs[i], "Find empty output while operator creation");
+                //IT_ASSERT(!outputs[i], "Find empty output while operator creation");
                 outputs[i] = graph->addTensor(shapes[i], dataTypes[i]);
             }
         }

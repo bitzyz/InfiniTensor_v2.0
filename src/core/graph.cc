@@ -137,7 +137,7 @@ namespace infini
         ops = std::move(sorted);
         return true;
     }
-
+    // !
     void GraphObj::shape_infer()
     {
         for (auto &op : ops)

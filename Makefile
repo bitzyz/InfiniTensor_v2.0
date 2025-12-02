@@ -1,9 +1,10 @@
 ﻿.PHONY : build clean check-infini
 
 TYPE ?= Release
+# TYPE ?= Debug
 TEST ?= ON
 # 平台参数（CUDA / ASCEND / CPU / ...）
-PLATFORM ?= CPU
+PLATFORM ?= CUDA
 # 通信开关（ON / OFF）
 COMM ?= OFF
 

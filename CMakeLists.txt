@@ -38,7 +38,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wall -Werror -Wno-error=deprecated-d
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -UNDEBUG") # Enable assertion
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -UNDEBUG") # Enable assertion
 
-
 # Source files
 file(GLOB_RECURSE SRC src/core/*.cc src/kernels/*.cc src/operators/*.cc src/utils/*.cc)
 
@@ -55,6 +54,16 @@ else()
   Message(FATAL_ERROR "INFINI_ROOT is not defined")
 endif()
 
+# Pybind11
+add_subdirectory(3rd-party/pybind11)
+include_directories(3rd-party/pybind11/include)
+
+# Python bindings
+file(GLOB_RECURSE BINGDINGS python/bindings/infinitensor.cc)
+pybind11_add_module(pyinfinitensor MODULE ${BINGDINGS})
+target_link_libraries(pyinfinitensor PRIVATE InfiniTensor)
+
+# Test
 if(BUILD_TEST)
 set(BUILD_GMOCK
       OFF

@@ -1,0 +1,29 @@
+#pragma once
+#ifndef GRAPH_BUILDER_H
+#define GRAPH_BUILDER_H
+
+#include "core/graph.h"
+#include "operators/Gemm.h"
+
+namespace infini {
+
+class GraphBuilderObj {
+private:
+  Ref<GraphObj> g;
+
+public:
+  GraphBuilderObj(Runtime runtime);
+
+  Tensor tensor(Shape dims, DataType dtype,
+                std::optional<Stride> stride = std::nullopt);
+
+  Tensor gemm(Tensor A, Tensor B, Tensor C, float alpha = 1.0, float beta = 1.0,
+              bool transA = false, bool transB = false,
+              std::optional<Tensor> Y = std::nullopt);
+  string printGraph() const;
+
+  Graph getGraph() const;
+};
+
+} // namespace infini
+#endif // GRAPH_BUILDER_H

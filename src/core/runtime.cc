@@ -1,37 +1,46 @@
 #include "core/runtime.h"
 
 namespace infini {
-thread_local Context g_currentCtx = nullptr;
+thread_local Context RuntimeObj::tls_context_cache = nullptr;
 
 Runtime &RuntimeObj::getInstance() {
   static Runtime instance = make_ref<RuntimeObj>();
-  ;
   return instance;
 }
 
 void RuntimeObj::initThreadContext(infiniDevice_t device, int deviceId) {
   // thread_local Context currentCtx;
-
-  if (!g_currentCtx) {
-    infinirtStream_t stream = nullptr;
-    CHECK_INFINI_ERROR(infinirtSetDevice(device, deviceId));
-    CHECK_INFINI_ERROR(infinirtStreamCreate(&stream)); // 创建线程专属 stream
-    g_currentCtx = std::make_shared<ContextObj>();
-    g_currentCtx->device = device;
-    g_currentCtx->deviceId = deviceId;
-    g_currentCtx->stream = stream;
-
-    std::lock_guard<std::mutex> lock(mtx);
-    threadContexts[std::this_thread::get_id()] = g_currentCtx;
+  if (tls_context_cache) {
+    return;
+  }
+  infinirtStream_t stream = nullptr;
+  CHECK_INFINI_ERROR(infinirtSetDevice(device, deviceId));
+  CHECK_INFINI_ERROR(infinirtStreamCreate(&stream));
+  Context ctx = std::make_shared<ContextObj>();
+  ctx->device = device;
+  ctx->deviceId = deviceId;
+  ctx->stream = stream;
+  tls_context_cache = ctx;
+  {
+    std::unique_lock<std::shared_mutex> lock(ctx_mutex);
+    threadContexts[std::this_thread::get_id()] = ctx;
   }
 }
 
 Context RuntimeObj::getCurrentThreadContext() const {
   // thread_local Context currentCtx;
-  if (!g_currentCtx) {
-    throw std::runtime_error("Thread context not initialized!");
+  if (tls_context_cache) {
+    return tls_context_cache;
   }
-  return g_currentCtx;
+  {
+    std::shared_lock<std::shared_mutex> lock(ctx_mutex);
+    auto it = threadContexts.find(std::this_thread::get_id());
+    if (it != threadContexts.end()) {
+      tls_context_cache = it->second;
+      return it->second;
+    }
+  }
+  throw std::runtime_error("Thread context not initialized!");
 }
 
 void RuntimeObj::setCurrentDevice(infiniDevice_t device, int deviceId) {
@@ -46,7 +55,6 @@ void RuntimeObj::getAllDeviceCount(int *count_array) {
 
 void RuntimeObj::run(const Graph &graph) const {
   // TODO: 目前仅支持单卡，后续支持多卡
-
   const auto &kernelRegistry = KernelRegistry::getInstance();
   for (auto &op : graph->getOperators()) {
     auto context = getCurrentThreadContext();
@@ -117,8 +125,7 @@ size_t RuntimeObj::getWorkspaceSize() const { return workspaceSize; }
 
 bool RuntimeObj::isCpu() const {
   auto context = getCurrentThreadContext();
-  auto device = context->device;
-  return device == INFINI_DEVICE_CPU;
+  return context->device == INFINI_DEVICE_CPU;
 }
 
 void RuntimeObj::allocworkspace() {

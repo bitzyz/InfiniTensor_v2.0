@@ -74,7 +74,9 @@ void bind_tensor(py::module &m) {
       //        })
       .def("to_torch_info",
            [](TensorObj &self, Runtime &runtime) {
-             self.copyToHost(runtime);
+             if (!runtime->isCpu()) {
+               self.copyToHost(runtime);
+             }
              auto data_type = self.getDataType();
              auto shape = self.getShape();
              auto stride = self.getStride();

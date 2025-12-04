@@ -28,7 +28,7 @@ jobs:
         if [ ! -d InfiniCore ]; then
           git clone git@github.com:InfiniTensor/InfiniCore.git &&
           cd InfiniCore &&
-          git checkout 2ef0f5a7b5fc2afe4856ba6b355d33116c2c15d0
+          git checkout f53154df00dc7005cebc49fe9080f1ea21ee1dfa
         else
           echo "InfiniCore already exists"
         fi

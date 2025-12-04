@@ -21,24 +21,7 @@ class TorchFXTranslator:
         self.dynamic_dims = {}  # 存储动态维度信息
         if custom_converters:
             registry.update(custom_converters)
-
-
-    def _process_call_module(self, node):
-        module = self.named_modules[node.target]
-        module_type = type(module)
-        function = registry.get_module_converter(module_type)
-        if function:
-            try:
-                self.nodes_map[node] = function
-                function(self, node, module)
-            except Exception as e:
-                raise RuntimeError(
-                    f"Converter for {module_type.__name__} failed: {str(e)}"
-                )
-        else:
-            raise ValueError(f"Unsupported module type: {module_type.__name__}")
         
-
     def _create_input_tensors(self, input_list: List[torch.Tensor], dynamic_input_info: List[Tuple[Tuple, str]]) -> List:
         """创建输入张量"""
         # dynamic_input_info是通过从图文件中提取的动态形状信息，input_info是用户提供的静态形状信息
@@ -109,17 +92,6 @@ class TorchFXTranslator:
         
         return dynamic_input_info
 
-    def _process_placeholder(self, node, input_tensors):
-        """处理输入占位符节点"""
-        if len(input_tensors) == 0:
-            raise ValueError(
-                f"Provided inputs is less than actual inputs. "
-                f"Node {node.name} requires an input but no more inputs available."
-            )
-        tensor = input_tensors.pop(0)
-        self.nodes_map[node] = tensor
-        self.tensors[node] = tensor
-
     def _fetch_attr(self, model, target: str):
         """获取模型属性"""
         target_atoms = target.split('.')
@@ -133,6 +105,17 @@ class TorchFXTranslator:
             return attr_itr
         except Exception as e:
             raise RuntimeError(f"Failed to fetch attribute {target}: {e}")
+
+    def _process_placeholder(self, node, input_tensors):
+        """处理输入占位符节点"""
+        if len(input_tensors) == 0:
+            raise ValueError(
+                f"Provided inputs is less than actual inputs. "
+                f"Node {node.name} requires an input but no more inputs available."
+            )
+        tensor = input_tensors.pop(0)
+        self.nodes_map[node] = tensor
+        self.tensors[node] = tensor
 
     def _process_get_attr(self, node, fx_module):
         """处理属性获取节点"""
@@ -148,6 +131,21 @@ class TorchFXTranslator:
         else:
             raise ValueError(f"Unsupported attribute type: {type(attr_value)}")
     
+    def _process_call_module(self, node):
+        module = self.named_modules[node.target]
+        module_type = type(module)
+        function = registry.get_module_converter(module_type)
+        if function:
+            try:
+                self.nodes_map[node] = function
+                function(self, node, module)
+            except Exception as e:
+                raise RuntimeError(
+                    f"Converter for {module_type.__name__} failed: {str(e)}"
+                )
+        else:
+            raise ValueError(f"Unsupported module type: {module_type.__name__}")
+
     def _process_call_function(self, node):
         """处理函数调用节点"""
         func_name = node.target.__name__ if hasattr(node.target, '__name__') else str(node.target)
@@ -178,6 +176,16 @@ class TorchFXTranslator:
         else:
             raise ValueError(f"Unsupported method: {method_name}")
 
+    def _process_output(self, node):
+        """处理输出节点"""
+        args = self._retrieve_args(node.args)
+        assert len(args) == 1
+        if isinstance(args[0], (tuple, list)):
+            for arg in args[0]:
+                self.outputs.append(self.tensors[arg])
+        else:
+            self.outputs.append(self.tensors[args[0]])
+
     def _retrieve_args(self, node):
         if isinstance(node, fx.Node):
             return node
@@ -192,16 +200,6 @@ class TorchFXTranslator:
         else:
             return node
 
-    def _process_output(self, node):
-        """处理输出节点"""
-        args = self._retrieve_args(node.args)
-        assert len(args) == 1
-        if isinstance(args[0], (tuple, list)):
-            for arg in args[0]:
-                self.outputs.append(self.tensors[arg])
-        else:
-            self.outputs.append(self.tensors[args[0]])
-        
     def _tensor_from_torch_info(self, torch_info):
         """从Torch信息创建张量"""
         data_ptr_int, shape, stride, dtype_str, storage_size = torch_info
@@ -253,7 +251,6 @@ class TorchFXTranslator:
                 break
             else:
                 raise ValueError(f"Unsupported node op: {node.op}")
-        print(self.builder.to_string())
         
     def get_outputs(self) -> List[torch.Tensor]:
         """

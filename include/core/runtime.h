@@ -7,14 +7,13 @@
 #include <infinirt.h>
 #include <memory>
 #include <mutex>
+#include <shared_mutex>
 #include <thread>
 
 namespace infini {
-inline infiniDevice_t CURRENT_DEVICE_TYPE = INFINI_DEVICE_CPU;
-inline int CURRENT_DEVICE_ID = 0;
 struct ContextObj {
-  infiniDevice_t device = CURRENT_DEVICE_TYPE;
-  int deviceId = CURRENT_DEVICE_ID;
+  infiniDevice_t device = INFINI_DEVICE_CPU;
+  int deviceId = 0;
   infinirtStream_t stream = nullptr;
 };
 using Context = Ref<ContextObj>;
@@ -22,8 +21,9 @@ using Context = Ref<ContextObj>;
 class RuntimeObj : public std::enable_shared_from_this<RuntimeObj> {
 private:
   // 全局 map: thread_id -> Context
-  std::unordered_map<std::thread::id, Context> threadContexts;
-  std::mutex mtx; // 保护 map
+  mutable std::unordered_map<std::thread::id, Context> threadContexts;
+  mutable std::shared_mutex ctx_mutex;
+  static thread_local Context tls_context_cache;
   size_t workspaceSize;
   void *workspace;
 
@@ -36,11 +36,11 @@ public:
   static Runtime &getInstance();
 
   // 每个线程初始化自己的 Context
-  void initThreadContext(infiniDevice_t device, int deviceId);
+  void initThreadContext(infiniDevice_t device, int deviceId = 0);
 
   // 获取活跃 Context
   Context getCurrentThreadContext() const;
-  void setCurrentDevice(infiniDevice_t device, int deviceId);
+  void setCurrentDevice(infiniDevice_t device, int deviceId = 0);
 
   static void init();
   static void getAllDeviceCount(int *count_array);

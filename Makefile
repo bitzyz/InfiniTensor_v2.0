@@ -65,8 +65,12 @@ build: check-infini
 	mkdir -p build/$(TYPE)
 	cd build/$(TYPE) && cmake $(CMAKE_OPT) ../.. && make -j8
 
+install-python: build
+	cp build/$(TYPE)/pyinfinitensor*.so python/src/infinitensor
+	pip install -e python/
+
 clean:
-	rm -rf build
+	rm -rf build && rm python/src/infinitensor/*.so
 
 test:
 	cd build/$(TYPE) && make test

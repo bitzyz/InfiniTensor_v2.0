@@ -28,7 +28,7 @@ jobs:
         if [ ! -d InfiniCore ]; then
           git clone git@github.com:InfiniTensor/InfiniCore.git &&
           cd InfiniCore &&
-          git checkout 2ef0f5a7b5fc2afe4856ba6b355d33116c2c15d0
+          git checkout f53154df00dc7005cebc49fe9080f1ea21ee1dfa
         else
           echo "InfiniCore already exists"
         fi
@@ -37,6 +37,9 @@ jobs:
       run: |
         curl -fsSL https://xmake.io/shget.text | bash
         echo "$HOME/.xmake" >> $GITHUB_PATH
+
+    - name: Install dependencies
+      run: cd InfiniCore && xmake require -y
 
     - name: build InfiniCore
       run: cd InfiniCore && python scripts/install.py

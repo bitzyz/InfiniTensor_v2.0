@@ -19,6 +19,10 @@ public:
 
   Tensor addTensor(Shape dim, DataType dtype);
   Tensor addTensor(Shape dim, Stride stride, DataType dtype);
+  Tensor addTensor(Shape dim, StrideExpr stride, DataType dtype);
+  Tensor addTensor(ShapeExpr dim, DataType dtype);
+  Tensor addTensor(ShapeExpr dim, StrideExpr stride, DataType dtype);
+  Tensor addTensor(ShapeExpr dim, Stride stride, DataType dtype);
   Tensor addTensor(const Tensor &tensor);
   TensorVec addTensor(const TensorVec &tensors);
   void removeOperator(Operator op);
@@ -45,6 +49,7 @@ public:
   }
 
   bool checkValid() const;
+  bool checkBeforRun() const;
 
 private:
   void addOperatorAndConnect(const Operator &op);

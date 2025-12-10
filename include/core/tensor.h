@@ -4,6 +4,7 @@
 
 #include "core/blob.h"
 #include "core/dtype.h"
+#include "core/expr.h"
 #include "core/object.h"
 #include "utils/utils.h"
 
@@ -15,25 +16,31 @@ class TensorObj : public Object {
 private:
   Fuid fuid;
   DataType dtype;
-  Shape shape;
-  Stride stride;
+  ShapeExpr shape;
+  StrideExpr stride;
   Blob data = nullptr;
   vector<WRef<OperatorObj>> targets;
   WRef<OperatorObj> source;
   infiniDevice_t device = INFINI_DEVICE_CPU;
 
 public:
+  TensorObj(ShapeExpr symbolic_shape, DataType dtype);
+  TensorObj(ShapeExpr symbolic_shape, StrideExpr stride, DataType dtype);
+  TensorObj(ShapeExpr symbolic_shape, Stride stride, DataType dtype);
   TensorObj(Shape shape, DataType dtype);
+  TensorObj(Shape shape, StrideExpr stride, DataType dtype);
   TensorObj(Shape shape, Stride stride, DataType dtype);
   virtual ~TensorObj() {}
 
   // =============Get TensorObj attributes=================
   UidBaseType getFuid() const;
   DataType getDataType() const;
-  Shape getShape() const;
+  ShapeExpr getShape() const;
+  void setShape(ShapeExpr shape_);
   void setShape(Shape shape_);
-  Stride getStride() const;
+  StrideExpr getStride() const;
   void setStride(Stride stride_);
+  void setStride(StrideExpr stride_);
   Blob getData() const;
   ElementType getElement() const;
   ElementType getStorageSize() const;
@@ -64,8 +71,10 @@ private:
   void addTarget(const Operator &op);
   void setSource(const Operator &op);
   void removeTarget(const Operator &op);
-  Stride computeContiguousStride(const Shape &shape) const;
+  StrideExpr computeContiguousStride(const ShapeExpr &shape) const;
   bool checkValid() const;
+  ShapeExpr makeShapeExpr(const Shape &shape) const;
+  StrideExpr makeStrideExpr(const Stride &stride) const;
 
   template <typename T>
   void printDataImpl(const Runtime &runtime, size_t maxElements = 0,

@@ -4,10 +4,9 @@
 
 #include "core/common.h"
 #include <numeric>
-namespace infini
-{
-    Shape infer_broadcast(const Shape &A, const Shape &B);
-    size_t calculateLinearOffset(size_t index, Shape shape, Stride stride);
+namespace infini {
+Shape infer_broadcast(const Shape &A, const Shape &B);
+size_t calculateLinearOffset(size_t index, Shape shape, Stride stride);
 } // namespace infini
 
 #endif

@@ -54,6 +54,7 @@ void RuntimeObj::getAllDeviceCount(int *count_array) {
 }
 
 void RuntimeObj::run(const Graph &graph) const {
+  IT_ASSERT(graph->checkBeforRun());
   // TODO: 目前仅支持单卡，后续支持多卡
   const auto &kernelRegistry = KernelRegistry::getInstance();
   for (auto &op : graph->getOperators()) {
@@ -66,6 +67,7 @@ void RuntimeObj::run(const Graph &graph) const {
 }
 
 void RuntimeObj::dataMalloc(const Graph &graph) {
+  IT_ASSERT(graph->checkBeforRun());
   for (auto &tensor : graph->getTensors()) {
     tensor->dataMalloc(shared_from_this());
   }

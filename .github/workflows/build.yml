@@ -38,6 +38,9 @@ jobs:
         curl -fsSL https://xmake.io/shget.text | bash
         echo "$HOME/.xmake" >> $GITHUB_PATH
 
+    - name: Install dependencies
+      run: cd InfiniCore && xmake require -y
+
     - name: build InfiniCore
       run: cd InfiniCore && python scripts/install.py
 

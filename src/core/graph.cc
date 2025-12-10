@@ -41,6 +41,22 @@ Tensor GraphObj::addTensor(Shape dim, Stride stride, DataType dtype) {
   return tensors.emplace_back(make_ref<TensorObj>(dim, stride, dtype));
 }
 
+Tensor GraphObj::addTensor(Shape dim, StrideExpr stride, DataType dtype) {
+  return tensors.emplace_back(make_ref<TensorObj>(dim, stride, dtype));
+}
+
+Tensor GraphObj::addTensor(ShapeExpr dim, DataType dtype) {
+  return tensors.emplace_back(make_ref<TensorObj>(dim, dtype));
+}
+
+Tensor GraphObj::addTensor(ShapeExpr dim, Stride stride, DataType dtype) {
+  return tensors.emplace_back(make_ref<TensorObj>(dim, stride, dtype));
+}
+
+Tensor GraphObj::addTensor(ShapeExpr dim, StrideExpr stride, DataType dtype) {
+  return tensors.emplace_back(make_ref<TensorObj>(dim, stride, dtype));
+}
+
 Tensor GraphObj::addTensor(const Tensor &tensor) {
   tensors.emplace_back(tensor);
   return tensor;
@@ -136,6 +152,18 @@ void GraphObj::shape_infer() {
       }
     }
   }
+}
+
+bool GraphObj::checkBeforRun() const {
+  for (auto tensor : tensors) {
+    auto shape = tensor->getShape();
+    auto stride = tensor->getStride();
+    IT_ASSERT(shape->isConcrete(),
+              "Shape of tensor " + tensor->toString() + " is not concrete");
+    IT_ASSERT(stride->isConcrete(),
+              "Stride of tensor " + tensor->toString() + " is not concrete");
+  }
+  return true;
 }
 
 void GraphObj::addOperatorAndConnect(const Operator &op) {

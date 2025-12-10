@@ -8,30 +8,63 @@
 
 namespace infini {
 
-TensorObj::TensorObj(Shape shape_, DataType dtype)
-    : dtype(dtype), shape(std::move(shape_)),
-      stride(computeContiguousStride(shape)) {
+TensorObj::TensorObj(ShapeExpr symbolic_shape, DataType dtype)
+    : dtype(dtype), shape(symbolic_shape) {
+  stride = computeContiguousStride(shape);
+  IT_ASSERT(checkValid());
+}
+
+TensorObj::TensorObj(ShapeExpr symbolic_shape, StrideExpr stride,
+                     DataType dtype)
+    : dtype(dtype), shape(symbolic_shape), stride(stride) {
+  IT_ASSERT(checkValid());
+}
+
+TensorObj::TensorObj(ShapeExpr symbolic_shape, Stride stride_, DataType dtype)
+    : dtype(dtype), shape(symbolic_shape) {
+  stride = makeStrideExpr(stride_);
+  IT_ASSERT(checkValid());
+}
+
+TensorObj::TensorObj(Shape shape_, DataType dtype) : dtype(dtype) {
+  shape = makeShapeExpr(shape_);
+  stride = computeContiguousStride(shape);
+  IT_ASSERT(checkValid());
+}
+
+TensorObj::TensorObj(Shape shape_, StrideExpr stride_, DataType dtype)
+    : dtype(dtype), stride(std::move(stride_)) {
+  shape = makeShapeExpr(shape_);
   IT_ASSERT(checkValid());
 }
 
 TensorObj::TensorObj(Shape shape_, Stride stride_, DataType dtype)
-    : dtype(dtype), shape(std::move(shape_)), stride(std::move(stride_)) {
+    : dtype(dtype) {
+  shape = makeShapeExpr(shape_);
+  stride = makeStrideExpr(stride_);
   IT_ASSERT(checkValid());
 }
 
 UidBaseType TensorObj::getFuid() const { return fuid; }
 DataType TensorObj::getDataType() const { return dtype; }
 
-Shape TensorObj::getShape() const { return shape; }
+ShapeExpr TensorObj::getShape() const { return shape; }
 
-void TensorObj::setShape(Shape shape_) {
+void TensorObj::setShape(ShapeExpr shape_) {
   shape = std::move(shape_);
   stride = computeContiguousStride(shape);
 }
 
-Stride TensorObj::getStride() const { return stride; }
+void TensorObj::setShape(Shape shape_) {
+  shape = makeShapeExpr(shape_);
+  stride = computeContiguousStride(shape);
+}
 
-void TensorObj::setStride(Stride stride_) { stride = std::move(stride_); }
+StrideExpr TensorObj::getStride() const { return stride; }
+
+void TensorObj::setStride(StrideExpr stride_) { stride = std::move(stride_); }
+
+void TensorObj::setStride(Stride stride_) { stride = makeStrideExpr(stride_); }
 
 Blob TensorObj::getData() const { return data; }
 
@@ -56,21 +89,25 @@ void TensorObj::dataMalloc(const Runtime &runtime) {
 }
 
 ElementType TensorObj::getElement() const {
-  return std::accumulate(shape.begin(), shape.end(), 1, std::multiplies{});
+  Shape constant_shape = shape->getConstantValue();
+  return std::accumulate(constant_shape.begin(), constant_shape.end(), 1,
+                         std::multiplies{});
 }
 
 ElementType TensorObj::getStorageSize() const {
+  Shape constant_shape = shape->getConstantValue();
+  Stride constant_stride = stride->getConstantValue();
   size_t max_offset = 0;
   size_t min_offset = 0;
   size_t storageSize = 1;
-  if (shape.empty()) {
+  if (constant_shape.empty()) {
     return storageSize; // 标量 Tensor
   }
-  for (size_t i = 0; i < getRank(); ++i) {
-    if (stride[i] >= 0) {
-      max_offset += (shape[i] - 1) * stride[i];
+  for (auto i = 0; i < getRank(); ++i) {
+    if (constant_stride[i] >= 0) {
+      max_offset += (constant_shape[i] - 1) * constant_stride[i];
     } else {
-      min_offset += (shape[i] - 1) * stride[i];
+      min_offset += (constant_shape[i] - 1) * constant_stride[i];
     }
   }
   storageSize = max_offset - min_offset + 1;
@@ -81,7 +118,7 @@ ElementType TensorObj::getTotalBytes() const {
   return getStorageSize() * dtype.getSize();
 }
 
-ElementType TensorObj::getRank() const { return shape.size(); }
+ElementType TensorObj::getRank() const { return shape->size(); }
 
 OpVec TensorObj::getTargets() const { return wrefs_to_refs(targets); }
 
@@ -94,10 +131,10 @@ string TensorObj::toString() const {
     ss << data->getPtr<void *>();
   else
     ss << "nullptr data";
-  string ret = "Tensor " + std::to_string(guid) + ", Fuid " +
-               std::to_string(fuid) + ", shape " + vecToString(shape) +
-               ", stride " + vecToString(stride) + ", dtype " +
-               dtype.toString() + ", " + ss.str() + "\n";
+  string ret =
+      "Tensor " + std::to_string(guid) + ", Fuid = " + std::to_string(fuid) +
+      ", shape = " + shape->toString() + ", stride = " + stride->toString() +
+      ", dtype = " + dtype.toString() + ", " + ss.str() + "\n";
   vector<UidBaseType> targetGuids;
   for (const auto &op : targets)
     targetGuids.emplace_back(op.lock()->getGuid());
@@ -120,22 +157,48 @@ void TensorObj::removeTarget(const Operator &op) {
   }
 }
 
-Stride TensorObj::computeContiguousStride(const Shape &shape) const {
-  Stride stride(getRank());
-  StrideElem p = 1;
-  for (auto i = getRank(); i > 0; --i) {
-    stride[i - 1] = p;
-    p = p * shape[i - 1];
+StrideExpr TensorObj::computeContiguousStride(const ShapeExpr &shape) const {
+  auto rank = shape->size();
+  vector<Expr> strides(rank);
+  Expr acc = ExprObj::constant(1);
+  for (auto i = rank; i > 0; --i) {
+    strides[i - 1] = acc;
+    acc = acc * (*shape)[i - 1];
   }
-  return stride;
+  auto strides_expr = make_ref<StrideExprObj>(strides);
+  if (shape->isConcrete()) {
+    strides_expr = strides_expr->simplify();
+  }
+  return strides_expr;
 }
 
 bool TensorObj::checkValid() const {
-  IT_ASSERT(shape.size() == stride.size());
-  for (size_t i = 0; i < shape.size(); ++i) {
-    IT_ASSERT(shape[i] > 0);
+  IT_ASSERT(shape->size() == stride->size());
+  for (size_t i = 0; i < shape->size(); ++i) {
+    const Expr &dim = (*shape)[i];
+    if (dim->getType() == ExprObj::Type::CONSTANT) {
+      IT_ASSERT(as<ConstantExprObj>(dim)->asConstant() > 0);
+    }
   }
   return true;
+}
+
+ShapeExpr TensorObj::makeShapeExpr(const Shape &shape_) const {
+  vector<Expr> dims;
+  dims.reserve(shape_.size());
+  for (auto v : shape_) {
+    dims.push_back(ExprObj::constant(v));
+  }
+  return make_ref<ShapeExprObj>(dims);
+}
+
+StrideExpr TensorObj::makeStrideExpr(const Stride &stride_) const {
+  vector<Expr> strides;
+  strides.reserve(stride_.size());
+  for (auto v : stride_) {
+    strides.push_back(ExprObj::constant(v));
+  }
+  return make_ref<StrideExprObj>(strides);
 }
 
 void TensorObj::printData(const Runtime &runtime, size_t maxElements,
@@ -159,7 +222,9 @@ void TensorObj::printData(const Runtime &runtime, size_t maxElements,
 template <typename T>
 void TensorObj::printDataImpl(const Runtime &runtime, size_t maxElements,
                               int precision) const {
-  IT_ASSERT(data != nullptr);
+  IT_ASSERT(data != nullptr && shape->isConcrete() && stride->isConcrete());
+  auto constant_shape = shape->getConstantValue();
+  auto constant_stride = stride->getConstantValue();
   void *data_ptr = runtime->allocHost(getTotalBytes());
   runtime->memcpy(data_ptr, data->getPtr<void *>(), getTotalBytes(),
                   INFINIRT_MEMCPY_D2H);
@@ -174,7 +239,7 @@ void TensorObj::printDataImpl(const Runtime &runtime, size_t maxElements,
     if (i > 0) {
       std::cout << ", ";
     }
-    size_t offset = calculateLinearOffset(i, shape, stride);
+    size_t offset = calculateLinearOffset(i, constant_shape, constant_stride);
 
     if constexpr (std::is_floating_point_v<T> || std::is_same_v<T, double>) {
       std::cout << std::setprecision(precision) << typed_data[offset];
@@ -199,7 +264,7 @@ template void TensorObj::printDataImpl<int32_t>(const Runtime &, size_t,
                                                 int) const;
 
 void TensorObj::copyToHost(const Runtime &runtime) {
-  IT_ASSERT(data != nullptr);
+  IT_ASSERT(data != nullptr && shape->isConcrete() && stride->isConcrete());
   IT_ASSERT(device != INFINI_DEVICE_CPU);
   void *data_ptr = runtime->allocHost(getTotalBytes());
   runtime->memcpy(data_ptr, data->getPtr<void *>(), getTotalBytes(),
@@ -210,7 +275,7 @@ void TensorObj::copyToHost(const Runtime &runtime) {
 }
 
 void TensorObj::copyToDevice(const Runtime &runtime) {
-  IT_ASSERT(data != nullptr);
+  IT_ASSERT(data != nullptr && shape->isConcrete() && stride->isConcrete());
   IT_ASSERT(device == INFINI_DEVICE_CPU);
   void *data_ptr = runtime->allocDevice(getTotalBytes());
   runtime->memcpy(data_ptr, data->getPtr<void *>(), getTotalBytes(),

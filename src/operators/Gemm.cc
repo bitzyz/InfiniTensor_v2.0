@@ -23,34 +23,35 @@ string GemmObj::toString() const {
   return os.str();
 }
 
-optional<vector<Shape>> GemmObj::inferShape() {
+optional<vector<ShapeExpr>> GemmObj::inferShape() {
   auto A = inputs[0], B = inputs[1];
   auto shapeA = A->getShape();
   auto shapeB = B->getShape();
-  IT_ASSERT(shapeA.size() >= 2 && shapeB.size() >= 2);
-  size_t batchA = (shapeA.size() == 3) ? shapeA[0] : 1;
-  size_t batchB = (shapeB.size() == 3) ? shapeB[0] : 1;
+  IT_ASSERT(shapeA->size() >= 2 && shapeB->size() >= 2);
+  Expr batchA = (shapeA->size() == 3) ? (*shapeA)[0] : ExprObj::constant(1);
+  Expr batchB = (shapeB->size() == 3) ? (*shapeB)[0] : ExprObj::constant(1);
   // 广播 batch 维度
-  ShapeElem batch;
+  Expr batch;
   if (batchA == batchB)
     batch = batchA;
-  else if (batchA == 1)
+  else if (batchA == ExprObj::constant(1))
     batch = batchB;
-  else if (batchB == 1)
+  else if (batchB == ExprObj::constant(1))
     batch = batchA;
   else
     IT_ASSERT(false,
               "batch dimensions of A and B must be equal or one of them is 1");
-  ShapeElem m = transA ? shapeA[shapeA.size() - 1] : shapeA[shapeA.size() - 2];
-  ShapeElem kA = transA ? shapeA[shapeA.size() - 2] : shapeA[shapeA.size() - 1];
-  ShapeElem kB = transB ? shapeB[shapeB.size() - 1] : shapeB[shapeB.size() - 2];
-  ShapeElem n = transB ? shapeB[shapeB.size() - 2] : shapeB[shapeB.size() - 1];
+  Expr m =
+      transA ? (*shapeA)[shapeA->size() - 1] : (*shapeA)[shapeA->size() - 2];
+  Expr kA =
+      transA ? (*shapeA)[shapeA->size() - 2] : (*shapeA)[shapeA->size() - 1];
+  Expr kB =
+      transB ? (*shapeB)[shapeB->size() - 1] : (*shapeB)[shapeB->size() - 2];
+  Expr n =
+      transB ? (*shapeB)[shapeB->size() - 2] : (*shapeB)[shapeB->size() - 1];
   IT_ASSERT(kA == kB);
-  Shape ret;
-  if (batch > 1)
-    ret = {batch, m, n}; // 3D
-  else
-    ret = {m, n}; // 2D
+  ShapeExpr ret;
+  ret = make_ref<ShapeExprObj>(ShapeExprObj({batch, m, n}));
   return {{ret}};
 }
 
@@ -68,14 +69,14 @@ void GemmObj::createOpDesc() {
   auto yStride = outputs[0]->getStride();
   infiniopTensorDescriptor_t yTensor, aTensor, bTensor;
   CHECK_INFINI_ERROR(infiniopCreateTensorDescriptor(
-      &yTensor, yShape.size(), yShape.data(), yStride.data(),
-      outputs[0]->getDataType().getType()));
+      &yTensor, yShape->size(), yShape->getConstantValue().data(),
+      yStride->getConstantValue().data(), outputs[0]->getDataType().getType()));
   CHECK_INFINI_ERROR(infiniopCreateTensorDescriptor(
-      &aTensor, aShape.size(), aShape.data(), aStride.data(),
-      inputs[0]->getDataType().getType()));
+      &aTensor, aShape->size(), aShape->getConstantValue().data(),
+      aStride->getConstantValue().data(), inputs[0]->getDataType().getType()));
   CHECK_INFINI_ERROR(infiniopCreateTensorDescriptor(
-      &bTensor, bShape.size(), bShape.data(), bStride.data(),
-      inputs[1]->getDataType().getType()));
+      &bTensor, bShape->size(), bShape->getConstantValue().data(),
+      bStride->getConstantValue().data(), inputs[1]->getDataType().getType()));
   infiniopHandle_t handle = nullptr;
   CHECK_INFINI_ERROR(infiniopCreateHandle(&handle));
   // create gemm op descriptor

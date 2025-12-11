@@ -14,8 +14,8 @@ private:
 public:
   GraphBuilderObj(Runtime runtime);
 
-  Tensor tensor(Shape dims, DataType dtype,
-                std::optional<Stride> stride = std::nullopt);
+  Tensor tensor(ShapeExpr dims, DataType dtype,
+                std::optional<StrideExpr> stride = std::nullopt);
 
   Tensor gemm(Tensor A, Tensor B, Tensor C, float alpha = 1.0, float beta = 1.0,
               bool transA = false, bool transB = false,

@@ -5,7 +5,7 @@ sys.path.extend(__path__)
 import pyinfinitensor
 from pyinfinitensor import (
     Runtime,
-    DeviceType,
+    DeviceType
 )
 
 from .torch_fx_translator import TorchFXTranslator

@@ -45,6 +45,7 @@ void bind_runtime(py::module &m) {
       .def(
           "run",
           [](RuntimeObj &self, Graph &graph) {
+            graph->shape_infer();
             self.dataMalloc(graph);
             self.run(graph);
           },

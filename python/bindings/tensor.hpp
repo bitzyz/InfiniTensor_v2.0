@@ -7,79 +7,81 @@
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-// #include <torch/torch.h>
 
 namespace py = pybind11;
 
 namespace infini {
+
+ShapeExpr create_shape_expr_from_pyobject(py::object dims) {
+  std::vector<Expr> dim_exprs;
+  if (py::isinstance<py::list>(dims) || py::isinstance<py::tuple>(dims)) {
+    auto dim_list = dims.cast<py::list>();
+    for (auto dim : dim_list) {
+      if (py::isinstance<py::int_>(dim)) {
+        int64_t value = dim.cast<int64_t>();
+        dim_exprs.push_back(ExprObj::constant(value));
+      } else if (py::isinstance<py::str>(dim)) {
+        std::string name = dim.cast<std::string>();
+        dim_exprs.push_back(ExprObj::variable(name));
+      } else {
+        throw py::type_error("Dimension must be int, str");
+      }
+    }
+  } else {
+    throw py::type_error("dims must be list, tuple");
+  }
+  return make_ref<ShapeExprObj>(dim_exprs);
+}
+
+StrideExpr create_stride_expr_from_pyobject(py::object strides) {
+  std::vector<Expr> stride_exprs;
+  if (py::isinstance<py::list>(strides) || py::isinstance<py::tuple>(strides)) {
+    auto stride_list = strides.cast<py::list>();
+    for (auto stride : stride_list) {
+      if (py::isinstance<py::int_>(stride)) {
+        int64_t value = stride.cast<int64_t>();
+        stride_exprs.push_back(ExprObj::constant(value));
+      } else if (py::isinstance<py::str>(stride)) {
+        std::string name = stride.cast<std::string>();
+        stride_exprs.push_back(ExprObj::variable(name));
+      } else {
+        throw py::type_error("Stride must be int, str");
+      }
+    }
+  } else {
+    throw py::type_error("strides must be list, tuple");
+  }
+  return make_ref<StrideExprObj>(stride_exprs);
+}
+
 void bind_tensor(py::module &m) {
+  py::class_<ShapeExprObj, std::shared_ptr<ShapeExprObj>>(m, "ShapeExpr")
+      .def(py::init<>())
+      .def(py::init<>([](py::object dims) {
+             return create_shape_expr_from_pyobject(dims);
+           }),
+           py::arg("dims"))
+      .def("get_constant_value", &ShapeExprObj::getConstantValue)
+      .def("to_string", &ShapeExprObj::toString);
+  py::class_<StrideExprObj, std::shared_ptr<StrideExprObj>>(m, "StrideExpr")
+      .def(py::init<>([](py::object strides) {
+             return create_stride_expr_from_pyobject(strides);
+           }),
+           py::arg("strides"))
+      .def("get_constant_value", &StrideExprObj::getConstantValue);
   py::class_<TensorObj, std::shared_ptr<TensorObj>>(m, "Tensor")
       .def("shape", &TensorObj::getShape)
       .def("dtype", &TensorObj::getDataType)
       .def("stride", &TensorObj::getStride)
       .def("rank", &TensorObj::getRank)
-      //   .def("from_torch_zero_copy",
-      //        [](TensorObj &self, torch::Tensor torch_tensor) {
-      //          // 检查形状是否匹配
-      //          auto torch_shape = torch_tensor.sizes();
-      //          auto self_shape = self.getShape();
-
-      //          if (torch_shape.size() != self_shape.size()) {
-      //            throw std::runtime_error("Shape rank mismatch between
-      //            existing "
-      //                                     "tensor and PyTorch tensor");
-      //          }
-
-      //          for (size_t i = 0; i < torch_shape.size(); ++i) {
-      //            if (torch_shape[i] != self_shape[i]) {
-      //              throw std::runtime_error("Shape dimension mismatch between
-      //              "
-      //                                       "existing tensor and PyTorch
-      //                                       tensor");
-      //            }
-      //          }
-
-      //          // 检查数据类型是否匹配
-      //          DataType self_dtype = self.getDataType();
-      //          py::object py_tensor = py::cast(torch_tensor);
-      //          py::object dtype_attr = py_tensor.attr("dtype");
-      //          py::object dtype_str_attr = dtype_attr.attr("__str__")();
-      //          std::string dtype_str = py::cast<std::string>(dtype_str_attr);
-      //          DataType torch_dtype = dtype_from_string(dtype_str);
-      //          if (self_dtype.getIndex() != expected_dtype.getIndex()) {
-      //            throw std::runtime_error("Data type mismatch between
-      //            existing "
-      //                                     "tensor and PyTorch tensor");
-      //          }
-
-      //          // 直接设置数据指针（零拷贝）
-      //          void *data_ptr = torch_tensor.data_ptr();
-      //          self.setData(data_ptr);
-
-      //          return &self;
-      //        })
-      //   .def("to_torch_tensor",
-      //        [](TensorObj &self, RuntimeObj &runtime) {
-      //          // 先拷贝到CPU
-      //          auto tensor = self.copyToCpu();
-      //          auto torch_dtype =
-      //              dtype_to_torch_scalar_type(tensor.getDataType());
-      //          auto shape = tensor.getShape();
-      //          auto stride = tensor.getStride();
-      //          auto options =
-      //              torch::TensorOptions().dtype(torch_dtype).device(torch::kCPU);
-      //          auto torch_tensor = torch::from_blob(
-      //              tensor.getRawDataPtr<void *>(), shape, stride, options);
-      //          return torch_tensor;
-      //        })
       .def("to_torch_info",
            [](TensorObj &self, Runtime &runtime) {
              if (!runtime->isCpu()) {
                self.copyToHost(runtime);
              }
              auto data_type = self.getDataType();
-             auto shape = self.getShape();
-             auto stride = self.getStride();
+             auto shape = self.getShape()->getConstantValue();
+             auto stride = self.getStride()->getConstantValue();
              void *data_ptr = self.getRawDataPtr<void *>();
              auto shape_vec = py::cast(shape);
              auto stride_vec = py::cast(stride);
@@ -92,12 +94,19 @@ void bind_tensor(py::module &m) {
                                    self.getTotalBytes() // 存储大小
              );
            })
-      .def("set_data", [](TensorObj &self, uintptr_t ptr, Runtime &runtime) {
-        self.setData(reinterpret_cast<void *>(ptr));
-        if (!runtime->isCpu()) {
-          self.copyToDevice(runtime);
-        }
-      });
+      .def("set_data",
+           [](TensorObj &self, uintptr_t ptr, Runtime &runtime) {
+             self.setData(reinterpret_cast<void *>(ptr));
+             if (!runtime->isCpu()) {
+               self.copyToDevice(runtime);
+             }
+           })
+      .def("set_shape",
+           [](TensorObj &self, py::object shape) {
+             auto shape_expr = create_shape_expr_from_pyobject(shape);
+             self.setShape(shape_expr);
+           })
+      .def("to_string", &TensorObj::toString);
 }
 } // namespace infini
 #endif // PYTHON_TENSOR_HPP

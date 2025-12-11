@@ -1,7 +1,7 @@
 import pytest
 import torch
 import torch.nn as nn
-import torch._dynamo as dynamo
+import numpy as np
 import infinitensor
 from infinitensor import TorchFXTranslator, Runtime, DeviceType
 
@@ -16,25 +16,25 @@ def test_basic_matmul(runtime, torch_rng_seed):
             return torch.matmul(x, y)
     
     model = MatmulModel()
-    x = torch.randn(5, 4)
-    y = torch.randn(4, 3)
-    
-    # 导出FX图
-    graph_module = dynamo.export(model, x, y).graph_module
+    # 随机初始化输入,传入形状可以与真实传入值不一样，但是数据类型需要一致
+    input_info = [((5, 4), "float32"), ((4, 3), "float32")]
+    input_tensors = [
+        torch.as_tensor(np.random.randn(*shape).astype(dtype))
+        for shape, dtype in input_info
+    ]
     
     # 创建转换器
     translator = TorchFXTranslator(runtime)
-    translator.import_from_fx(graph_module, [x, y])
-    
+    translator.import_from_fx(model, input_tensors)
     # 运行
-    runtime.run(translator.builder.graph)
+    translator.run(input_tensors)
     
     # 获取输出
     outputs = translator.get_outputs()
     
     # 验证
     assert len(outputs) == 1
-    assert outputs[0].shape == (5, 3)
+    assert outputs[0].shape == (1, 5, 3)
     print("✅ Test passed!")
 
 

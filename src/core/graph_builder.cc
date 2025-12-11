@@ -5,8 +5,8 @@ namespace infini {
 GraphBuilderObj::GraphBuilderObj(Runtime runtime)
     : g(make_ref<GraphObj>(std::move(runtime))) {}
 
-Tensor GraphBuilderObj::tensor(Shape dims, DataType dtype,
-                               std::optional<Stride> stride) {
+Tensor GraphBuilderObj::tensor(ShapeExpr dims, DataType dtype,
+                               std::optional<StrideExpr> stride) {
   if (stride.has_value()) {
     return g->addTensor(dims, stride.value(), dtype);
   } else {

@@ -290,10 +290,10 @@ class TorchFXTranslator:
                         self.symbols[shape_ele]['value'] = s
                     else:
                         if self.symbols[shape_ele]['value'] != s:
-                            raise ValueError(f"The input tensor shape should equal {s}, input {i}, dim {j}")
+                            raise ValueError(f"The input {i}, dim {j} shape should equal {s}, but is {self.symbols[shape_ele]['value']}")
                 else:
                     if s != shape_ele:
-                        raise ValueError(f"The input tensor shape should equal {shape_ele}, input {i}, dim {j}")
+                        raise ValueError(f"The input {i}, dim {j} shape should equal {shape_ele}, but is {s}")
                 shape.append(s)
             self.input_vars[f"inp_{i}"].set_shape(shape)
             self.input_vars[f"inp_{i}"].set_data(tensor.data_ptr(), self.runtime)

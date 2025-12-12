@@ -1,4 +1,4 @@
-﻿.PHONY : build clean check-infini
+﻿.PHONY : build clean check-infini format install-python
 
 TYPE ?= Release
 TEST ?= ON
@@ -6,6 +6,7 @@ TEST ?= ON
 PLATFORM ?= CPU
 # 通信开关（ON / OFF）
 COMM ?= OFF
+FORMAT_ORIGIN ?=
 
 CMAKE_OPT = -DCMAKE_BUILD_TYPE=$(TYPE)
 CMAKE_OPT += -DBUILD_TEST=$(TEST)
@@ -74,3 +75,6 @@ clean:
 
 test:
 	cd build/$(TYPE) && make test
+
+format:
+	@python3 format.py $(FORMAT_ORIGIN)

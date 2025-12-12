@@ -4,22 +4,19 @@
 
 #include "core/ref.h"
 
-namespace infini
-{
+namespace infini {
 
-  class BlobObj
-  {
+class BlobObj {
     void *ptr;
 
   public:
     BlobObj(void *ptr) : ptr(ptr) {}
     BlobObj(BlobObj &other) = delete;
     BlobObj &operator=(BlobObj const &) = delete;
-    ~BlobObj(){};
+    ~BlobObj() {};
 
-    template <typename T>
-    T getPtr() const { return reinterpret_cast<T>(ptr); }
-  };
+    template <typename T> T getPtr() const { return reinterpret_cast<T>(ptr); }
+};
 
 } // namespace infini
 

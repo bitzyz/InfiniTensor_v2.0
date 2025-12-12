@@ -8,21 +8,21 @@
 namespace infini {
 
 class GraphBuilderObj {
-private:
-  Ref<GraphObj> g;
+  private:
+    Ref<GraphObj> g;
 
-public:
-  GraphBuilderObj(Runtime runtime);
+  public:
+    GraphBuilderObj(Runtime runtime);
 
-  Tensor tensor(ShapeExpr dims, DataType dtype,
-                std::optional<StrideExpr> stride = std::nullopt);
+    Tensor tensor(ShapeExpr dims, DataType dtype,
+                  std::optional<StrideExpr> stride = std::nullopt);
 
-  Tensor gemm(Tensor A, Tensor B, Tensor C, float alpha = 1.0, float beta = 1.0,
-              bool transA = false, bool transB = false,
-              std::optional<Tensor> Y = std::nullopt);
-  string printGraph() const;
+    Tensor gemm(Tensor A, Tensor B, Tensor C, float alpha = 1.0,
+                float beta = 1.0, bool transA = false, bool transB = false,
+                std::optional<Tensor> Y = std::nullopt);
+    string printGraph() const;
 
-  Graph getGraph() const;
+    Graph getGraph() const;
 };
 
 } // namespace infini

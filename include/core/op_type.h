@@ -4,62 +4,57 @@
 
 #include "core/common.h"
 
-namespace infini
-{
-    struct OpType
-    {
-        using underlying_t = uint16_t;
-        enum : underlying_t
-        {
-            Unknown,
-            Add,
-            Cast,
-            Clip,
-            Concat,
-            Div,
-            Gemm,
-            Mul,
-            MatMul,
-            Relu,
-            Sub,
-            Transpose,
+namespace infini {
+struct OpType {
+    using underlying_t = uint16_t;
+    enum : underlying_t {
+        Unknown,
+        Add,
+        Cast,
+        Clip,
+        Concat,
+        Div,
+        Gemm,
+        Mul,
+        MatMul,
+        Relu,
+        Sub,
+        Transpose,
 
-        } type;
+    } type;
 
-        constexpr OpType(decltype(type) t) : type(t) {}
-        constexpr explicit OpType(underlying_t val) : type((decltype(type))val) {}
-        constexpr underlying_t underlying() const { return type; }
+    constexpr OpType(decltype(type) t) : type(t) {}
+    constexpr explicit OpType(underlying_t val) : type((decltype(type))val) {}
+    constexpr underlying_t underlying() const { return type; }
 
-        bool operator==(OpType others) const { return type == others.type; }
-        bool operator!=(OpType others) const { return type != others.type; }
+    bool operator==(OpType others) const { return type == others.type; }
+    bool operator!=(OpType others) const { return type != others.type; }
 
-        const char *toString() const
-        {
-#define CASE(NAME)     \
-    case OpType::NAME: \
+    const char *toString() const {
+#define CASE(NAME)                                                             \
+    case OpType::NAME:                                                         \
         return #NAME
 
-            switch (type)
-            {
-                CASE(Unknown);
-                CASE(Add);
-                CASE(Sub);
-                CASE(Mul);
-                CASE(Div);
-                CASE(Cast);
-                CASE(Clip);
-                CASE(Relu);
-                CASE(Transpose);
-                CASE(Concat);
-                CASE(MatMul);
+        switch (type) {
+            CASE(Unknown);
+            CASE(Add);
+            CASE(Sub);
+            CASE(Mul);
+            CASE(Div);
+            CASE(Cast);
+            CASE(Clip);
+            CASE(Relu);
+            CASE(Transpose);
+            CASE(Concat);
+            CASE(MatMul);
 
-            default:
-                return "Unknown";
-            }
+        default:
+            return "Unknown";
+        }
 
 #undef CASE
-        };
     };
+};
 
 } // namespace infini
 

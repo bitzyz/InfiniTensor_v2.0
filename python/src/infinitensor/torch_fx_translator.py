@@ -1,6 +1,6 @@
 import ctypes
 import pyinfinitensor
-from pyinfinitensor import GraphBuilder, Tensor, dtype_from_string, Runtime,ShapeExpr
+from pyinfinitensor import GraphBuilder, Tensor, dtype_from_string, Runtime, ShapeExpr
 import torch
 from torch import fx
 import torch._dynamo as dynamo
@@ -12,50 +12,59 @@ class TorchFXTranslator:
     def __init__(self, runtime: Runtime, custom_converters: Optional[Dict] = None):
         self.runtime = runtime
         self.module = None
-        self.builder = None 
-        self.nodes_map: Dict[fx.Node, Any] = {} # 存储fx.Node映射关系，不论是Tensor还是Callable
-        self.tensors: Dict[fx.Node, Tensor] = {} # 存储所有张量
-        self.params: Dict[torch.Tensor, Tensor] = {} # 存储所有参数
-        self.outputs: List[Tensor] = [] # 存储输出张量
+        self.builder = None
+        self.nodes_map: Dict[fx.Node, Any] = (
+            {}
+        )  # 存储fx.Node映射关系，不论是Tensor还是Callable
+        self.tensors: Dict[fx.Node, Tensor] = {}  # 存储所有张量
+        self.params: Dict[torch.Tensor, Tensor] = {}  # 存储所有参数
+        self.outputs: List[Tensor] = []  # 存储输出张量
         self.input_vars: Dict[str, Tensor] = {}
         self.named_modules = None
-        self.symbols = {} #符号 -> {'var': 变量名, 'value': 具体值, 'info': 详细信息}
-        self.dynamic_input_infos: List[Tuple[Tuple, str]] = [] # 动态输入信息
+        self.symbols = {}  # 符号 -> {'var': 变量名, 'value': 具体值, 'info': 详细信息}
+        self.dynamic_input_infos: List[Tuple[Tuple, str]] = []  # 动态输入信息
         if custom_converters:
             registry.update(custom_converters)
 
     def _add_symbol(self, symbol_str, input_idx, dim_idx):
         """添加符号信息"""
         if symbol_str in self.symbols:
-            self.symbols[symbol_str]['info']['input_idx'].append(input_idx)
-            self.symbols[symbol_str]['info']['dim_idx'].append(dim_idx)
+            self.symbols[symbol_str]["info"]["input_idx"].append(input_idx)
+            self.symbols[symbol_str]["info"]["dim_idx"].append(dim_idx)
         else:
             var_name = f"symbolic_{symbol_str}"
             self.symbols[symbol_str] = {
-                'var': var_name,
-                'value': None,  # 初始化为None，表示未绑定
-                'info': {
-                    'input_idx': [input_idx],
-                    'dim_idx': [dim_idx],
-                }
+                "var": var_name,
+                "value": None,  # 初始化为None，表示未绑定
+                "info": {
+                    "input_idx": [input_idx],
+                    "dim_idx": [dim_idx],
+                },
             }
 
     def _clear_symbols(self):
         """清空符号信息"""
         for symbol_str in self.symbols:
-            self.symbols[symbol_str]['value'] = None
+            self.symbols[symbol_str]["value"] = None
 
-        
-    def _create_input_tensors(self, input_list: List[torch.Tensor], is_real_tensor: bool) -> List:
+    def _create_input_tensors(
+        self, input_list: List[torch.Tensor], is_real_tensor: bool
+    ) -> List:
         """创建输入张量"""
         # dynamic_input_infos是通过从图文件中提取的动态形状信息，input_info是用户提供的静态形状信息
         input_tensors = []
-        if len(self.dynamic_input_infos) != 0 and len(input_list) != len(self.dynamic_input_infos):
-            raise ValueError("Input info and dynamic input info should have the same length.")
-        if is_real_tensor :
+        if len(self.dynamic_input_infos) != 0 and len(input_list) != len(
+            self.dynamic_input_infos
+        ):
+            raise ValueError(
+                "Input info and dynamic input info should have the same length."
+            )
+        if is_real_tensor:
             for i, torch_tensor in enumerate(input_list):
                 dtype = dtype_from_string(str(torch_tensor.dtype))
-                tensor = self.builder.tensor(ShapeExpr(list(torch_tensor.size())), dtype)
+                tensor = self.builder.tensor(
+                    ShapeExpr(list(torch_tensor.size())), dtype
+                )
                 if torch_tensor.numel() > 0:
                     tensor.set_data(torch_tensor.data_ptr(), self.runtime)
                 input_tensors.append(tensor)
@@ -70,18 +79,23 @@ class TorchFXTranslator:
     def _extract_fake_tensors(self, graph):
         """从FX图中提取FakeTensor信息"""
         fake_inputs = []
-        
+
         for node in graph.nodes:
             if node.op != "placeholder":
                 continue
-            if "grapharg" in node.meta and node.meta["grapharg"].fake_tensor is not None:
+            if (
+                "grapharg" in node.meta
+                and node.meta["grapharg"].fake_tensor is not None
+            ):
                 fake_tensor = node.meta["grapharg"].fake_tensor
                 fake_inputs.append(fake_tensor)
-            if "val" in node.meta and isinstance(node.meta["val"], torch._subclasses.fake_tensor.FakeTensor):
+            if "val" in node.meta and isinstance(
+                node.meta["val"], torch._subclasses.fake_tensor.FakeTensor
+            ):
                 fake_tensor = node.meta["val"]
                 fake_inputs.append(fake_tensor)
-            #TODO: 由于不同的torch compile方法会导致Node中meta信息不一致，可能需进一步调研，目前是借鉴了tvm现有实现
-        
+            # TODO: 由于不同的torch compile方法会导致Node中meta信息不一致，可能需进一步调研，目前是借鉴了tvm现有实现
+
         return fake_inputs
 
     def _process_dynamic_shapes(self, fake_inputs):
@@ -89,23 +103,27 @@ class TorchFXTranslator:
         for i, tensor in enumerate(fake_inputs):
             shape = []
             for j, s in enumerate(tensor.shape):
-                if hasattr(torch, 'SymInt') and isinstance(s, torch.SymInt) and not str(s).isdigit():
+                if (
+                    hasattr(torch, "SymInt")
+                    and isinstance(s, torch.SymInt)
+                    and not str(s).isdigit()
+                ):
                     # 处理符号维度
                     sym_str = str(s)
                     self._add_symbol(sym_str, i, j)
-                    shape.append(self.symbols[sym_str]['var'])
+                    shape.append(self.symbols[sym_str]["var"])
                 else:
                     # 具体维度
                     shape.append(int(s))
-            
+
             dtype = dtype_from_string(str(tensor.dtype))
             self.dynamic_input_infos.append((shape, dtype))
 
     def _fetch_attr(self, model, target: str):
         """获取模型属性"""
-        target_atoms = target.split('.')
+        target_atoms = target.split(".")
         attr_itr = model
-        
+
         try:
             for atom in target_atoms:
                 if not hasattr(attr_itr, atom):
@@ -129,17 +147,19 @@ class TorchFXTranslator:
     def _process_get_attr(self, node, fx_module):
         """处理属性获取节点"""
         attr_value = self._fetch_attr(fx_module, node.target)
-        
+
         if isinstance(attr_value, torch.Tensor):
             # 如果是参数或缓冲区张量
             if attr_value not in self.params:
-                self.params[attr_value] = self.builder.tensor(ShapeExpr(attr_value.shape), dtype_from_string(attr_value.dtype))
+                self.params[attr_value] = self.builder.tensor(
+                    ShapeExpr(attr_value.shape), dtype_from_string(attr_value.dtype)
+                )
                 self.params[attr_value].set_data(attr_value.data_ptr(), self.runtime)
                 self.nodes_map[node] = self.params[attr_value]
                 self.tensors[node] = self.params[attr_value]
         else:
             raise ValueError(f"Unsupported attribute type: {type(attr_value)}")
-    
+
     def _process_call_module(self, node):
         module = self.named_modules[node.target]
         module_type = type(module)
@@ -157,16 +177,18 @@ class TorchFXTranslator:
 
     def _process_call_function(self, node):
         """处理函数调用节点"""
-        func_name = node.target.__name__ if hasattr(node.target, '__name__') else str(node.target)
+        func_name = (
+            node.target.__name__
+            if hasattr(node.target, "__name__")
+            else str(node.target)
+        )
         function = registry.get_method_converter(func_name)
         if function:
             try:
                 self.nodes_map[node] = function
                 function(self, node)
             except Exception as e:
-                raise RuntimeError(
-                    f"Converter for {func_name} failed: {str(e)}"
-                )
+                raise RuntimeError(f"Converter for {func_name} failed: {str(e)}")
         else:
             raise ValueError(f"Unsupported function: {func_name}")
 
@@ -179,9 +201,7 @@ class TorchFXTranslator:
                 self.nodes_map[node] = function
                 function(self, node)
             except Exception as e:
-                raise RuntimeError(
-                    f"Converter for {method_name} failed: {str(e)}"
-                )
+                raise RuntimeError(f"Converter for {method_name} failed: {str(e)}")
         else:
             raise ValueError(f"Unsupported method: {method_name}")
 
@@ -203,7 +223,9 @@ class TorchFXTranslator:
         elif isinstance(node, tuple):
             return tuple(self._retrieve_args(n) for n in node)
         elif isinstance(node, dict):
-            return {self._retrieve_args(k): self._retrieve_args(v) for k, v in node.items()}
+            return {
+                self._retrieve_args(k): self._retrieve_args(v) for k, v in node.items()
+            }
         elif node is None:
             return None
         else:
@@ -219,10 +241,12 @@ class TorchFXTranslator:
         t = t.as_strided(size=shape, stride=stride)
         return t
 
-    def import_from_fx(self, model, input_list: List[torch.Tensor], is_real_tensor: bool = False):
+    def import_from_fx(
+        self, model, input_list: List[torch.Tensor], is_real_tensor: bool = False
+    ):
         """
         导入FX图到计算图框架
-        
+
         Args:
             model: PyTorch Model
             input_list: 输入张量列表
@@ -235,7 +259,7 @@ class TorchFXTranslator:
         except:
             raise RuntimeError("Failed to export the PyTorch model to FX.")
         self.named_modules = dict(fx_module.named_modules())
-        
+
         self.module = fx_module.graph
         # 提取符号形状信息
         fake_inputs = self._extract_fake_tensors(self.module)
@@ -245,16 +269,18 @@ class TorchFXTranslator:
         # 创建params
         for _, param in fx_module.named_parameters():
             if isinstance(param, torch.Tensor):
-                self.params[param] = self.builder.tensor(ShapeExpr(param.shape), dtype_from_string(str(param.dtype)))
+                self.params[param] = self.builder.tensor(
+                    ShapeExpr(param.shape), dtype_from_string(str(param.dtype))
+                )
                 self.params[param].set_data(param.data_ptr(), self.runtime)
-        
+
         # 处理FX图节点
         for node in self.module.nodes:
             if node.op == "placeholder":
                 self._process_placeholder(node, inputs)
             elif node.op == "call_function":
                 self._process_call_function(node)
-            elif node.op == "call_module": 
+            elif node.op == "call_module":
                 self._process_call_module(node)
             elif node.op == "call_method":
                 self._process_call_method(node)
@@ -271,7 +297,7 @@ class TorchFXTranslator:
     def run(self, input_list: List[torch.Tensor]):
         """
         运行计算图
-        
+
         Args:
             input_list: 输入张量列表
         """
@@ -280,31 +306,35 @@ class TorchFXTranslator:
             raise ValueError("The input tensor len is not equal the model input len")
         for i, tensor in enumerate(input_list):
             if len(tensor.shape) != len(self.dynamic_input_infos[i][0]):
-                raise ValueError(f"The input tensor shape len is not equal the model input shape len, input {i}")
+                raise ValueError(
+                    f"The input tensor shape len is not equal the model input shape len, input {i}"
+                )
             shape = []
             for j, s in enumerate(tensor.shape):
                 shape_ele = self.dynamic_input_infos[i][0][j]
                 if isinstance(shape_ele, str):
-                    shape_ele = shape_ele.replace("symbolic_", "", 1) 
-                    if self.symbols[shape_ele]['value'] is None:
-                        self.symbols[shape_ele]['value'] = s
+                    shape_ele = shape_ele.replace("symbolic_", "", 1)
+                    if self.symbols[shape_ele]["value"] is None:
+                        self.symbols[shape_ele]["value"] = s
                     else:
-                        if self.symbols[shape_ele]['value'] != s:
-                            raise ValueError(f"The input {i}, dim {j} shape should equal {s}, but is {self.symbols[shape_ele]['value']}")
+                        if self.symbols[shape_ele]["value"] != s:
+                            raise ValueError(
+                                f"The input {i}, dim {j} shape should equal {s}, but is {self.symbols[shape_ele]['value']}"
+                            )
                 else:
                     if s != shape_ele:
-                        raise ValueError(f"The input {i}, dim {j} shape should equal {shape_ele}, but is {s}")
+                        raise ValueError(
+                            f"The input {i}, dim {j} shape should equal {shape_ele}, but is {s}"
+                        )
                 shape.append(s)
             self.input_vars[f"inp_{i}"].set_shape(shape)
             self.input_vars[f"inp_{i}"].set_data(tensor.data_ptr(), self.runtime)
         self.runtime.run(self.builder.graph)
 
-
-
     def get_outputs(self) -> List[torch.Tensor]:
         """
         获取输出Torch张量
-        
+
         Returns:
             outputs: 输出Torch张量列表
         """

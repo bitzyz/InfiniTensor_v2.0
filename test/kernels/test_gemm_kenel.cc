@@ -33,7 +33,10 @@ void runGemmTest(const std::string &deviceName, infiniDevice_t DeviceT,
 TEST(Gemm, Kernel) {
     runGemmTest("CPU", INFINI_DEVICE_CPU, Shape{3, 5}, Shape{5, 2}, 1.0, 0.0,
                 false, false, DataType(INFINI_DTYPE_F32));
+
+#ifdef USE_CUDA
     runGemmTest("NVIDIA", INFINI_DEVICE_NVIDIA, Shape{3, 5}, Shape{5, 2}, 1.0,
                 0.0, false, false, DataType(INFINI_DTYPE_F32));
+#endif
 }
 } // namespace infini

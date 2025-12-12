@@ -1,9 +1,17 @@
-﻿.PHONY : build clean check-infini format install-python
+﻿.PHONY : build clean check-infini format install-python test test-front
 
 TYPE ?= Release
 TEST ?= ON
 # 平台参数（CUDA / ASCEND / CPU / ...）
 PLATFORM ?= CPU
+USE_CUDA ?= OFF
+USE_ASCEND ?= OFF
+USE_CAMBRICON ?= OFF
+USE_METAX ?= OFF
+USE_MOORE ?= OFF
+USE_ILUVATAR ?= OFF
+USE_SUGON ?= OFF
+USE_KUNLUN ?= OFF
 # 通信开关（ON / OFF）
 COMM ?= OFF
 FORMAT_ORIGIN ?=
@@ -21,23 +29,40 @@ ifeq ($(PLATFORM), CPU)
     XMAKE_PLATFORM_FLAG = --cpu=y
 else ifeq ($(PLATFORM), CUDA)
     XMAKE_PLATFORM_FLAG = --nv-gpu=y
+	USE_CUDA = ON
 else ifeq ($(PLATFORM), ASCEND)
     XMAKE_PLATFORM_FLAG = --ascend-npu=y
+	USE_ASCEND = ON
 else ifeq ($(PLATFORM), CAMBRICON)
     XMAKE_PLATFORM_FLAG = --cambricon-mlu=y
+	USE_CAMBRICON = ON
 else ifeq ($(PLATFORM), METAX)
     XMAKE_PLATFORM_FLAG = --metax-gpu=y
+	USE_METAX = ON
 else ifeq ($(PLATFORM), MOORE)
     XMAKE_PLATFORM_FLAG = --moore-gpu=y
+	USE_MOORE = ON
 else ifeq ($(PLATFORM), ILUVATAR)
     XMAKE_PLATFORM_FLAG = --iluvatar-gpu=y
+	USE_ILUVATAR = ON
 else ifeq ($(PLATFORM), SUGON)
     XMAKE_PLATFORM_FLAG = --sugon-dcu=y
+	USE_SUGON = ON
 else ifeq ($(PLATFORM), KUNLUN)
     XMAKE_PLATFORM_FLAG = --kunlun-xpu=y
+	USE_KUNLUN = ON
 else
     $(error Unknown PLATFORM=$(PLATFORM). Supported: CPU, CUDA, ASCEND, CAMBRICON, METAX, MOORE, ILUVATAR, SUGON, KUNLUN)
 endif
+
+CMAKE_OPT += -DUSE_CUDA=$(USE_CUDA)
+CMAKE_OPT += -DUSE_ASCEND=$(USE_ASCEND)
+CMAKE_OPT += -DUSE_CAMBRICON=$(USE_CAMBRICON)
+CMAKE_OPT += -DUSE_METAX=$(USE_METAX)
+CMAKE_OPT += -DUSE_MOORE=$(USE_MOORE)
+CMAKE_OPT += -DUSE_ILUVATAR=$(USE_ILUVATAR)
+CMAKE_OPT += -DUSE_SUGON=$(USE_SUGON)
+CMAKE_OPT += -DUSE_KUNLUN=$(USE_KUNLUN)
 
 # 通信参数
 ifeq ($(COMM), ON)
@@ -71,10 +96,14 @@ install-python: build
 	pip install -e python/
 
 clean:
-	rm -rf build && rm python/src/infinitensor/*.so
+	rm -rf build && rm -f python/src/infinitensor/*.so
 
 test:
 	cd build/$(TYPE) && make test
 
 format:
 	@python3 format.py $(FORMAT_ORIGIN)
+
+test-front:
+	pytest python/tests/
+	

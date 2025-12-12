@@ -1,0 +1,5 @@
+# Python dependencies required for development
+
+pytest
+numpy
+torch

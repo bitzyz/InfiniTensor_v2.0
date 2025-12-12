@@ -18,7 +18,7 @@ def test_basic_matmul(runtime, torch_rng_seed):
 
     model = MatmulModel()
     # 随机初始化输入,传入形状可以与真实传入值不一样，但是数据类型需要一致
-    input_info = [((5, 4), "float32"), ((4, 5), "float32")]
+    input_info = [((5, 4), "float32"), ((4, 3), "float32")]
     input_tensors = [
         torch.as_tensor(np.random.randn(*shape).astype(dtype))
         for shape, dtype in input_info

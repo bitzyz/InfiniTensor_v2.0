@@ -296,6 +296,13 @@ Expr BaseExprObj::operator[](size_t idx) const {
     return dims[idx];
 }
 
+void BaseExprObj::insert(size_t pos, const Expr &value) {
+    if (pos > dims.size()) {
+        throw std::out_of_range("insert: pos out of range");
+    }
+    dims.insert(dims.begin() + pos, value);
+}
+
 //==================================
 // ShapeExprObj 实现
 //==================================

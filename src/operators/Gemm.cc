@@ -24,6 +24,19 @@ string GemmObj::toString() const {
     return os.str();
 }
 
+GemmObj::~GemmObj() {
+    if (infiniOpDesc) {
+        infiniStatus_t err = INFINI_STATUS_SUCCESS;
+        err = infiniopDestroyGemmDescriptor(
+            (infiniopGemmDescriptor_t)infiniOpDesc);
+        if (err != INFINI_STATUS_SUCCESS) {
+            std::cerr << "Warning: Gemm descriptor destroy failed with "
+                         "error code "
+                      << err << std::endl;
+        }
+    }
+}
+
 optional<vector<ShapeExpr>> GemmObj::inferShape() {
     auto A = inputs[0], B = inputs[1];
     auto shapeA = A->getShape();

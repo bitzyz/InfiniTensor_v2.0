@@ -27,7 +27,7 @@ class ElementWiseObj : public OperatorObj {
 
     void createOpDesc() override;
     optional<vector<ShapeExpr>> inferShape() override;
-    vector<DataType> inferDataType() const;
+    vector<DataType> inferDataType() const override;
 
     OpType getElemenwiseOpType() const;
 };

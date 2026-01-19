@@ -28,21 +28,11 @@ class GemmObj : public OperatorObj {
             bool transB = false);
 
     string toString() const override;
-    ~GemmObj() override {
-        if (infiniOpDesc) {
-            auto err = infiniopDestroyGemmDescriptor(
-                (infiniopGemmDescriptor_t)infiniOpDesc);
-            if (err != INFINI_STATUS_SUCCESS) {
-                std::cerr << "Warning: Gemm descriptor destroy failed with "
-                             "error code "
-                          << err << std::endl;
-            }
-        }
-    }
+    ~GemmObj() override;
 
     void createOpDesc() override;
     optional<vector<ShapeExpr>> inferShape() override;
-    vector<DataType> inferDataType() const;
+    vector<DataType> inferDataType() const override;
 
     bool getTransA() const;
     bool getTransB() const;

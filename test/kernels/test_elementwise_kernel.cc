@@ -63,7 +63,7 @@ void runElementWiseTest(const std::string &deviceName, infiniDevice_t DeviceT,
 
 // 基本Add操作测试
 TEST(ElementWise, Add_Basic) {
-    Shape shapeA = {2, 3, 4};
+    Shape shapeA = {3, 1};
     Shape shapeB = {2, 3, 4};
 
     runElementWiseTest("CPU", INFINI_DEVICE_CPU, OpType::Add, shapeA, shapeB,

@@ -52,11 +52,17 @@ ElementWiseObj::~ElementWiseObj() {
 }
 
 void ElementWiseObj::createOpDesc() {
-    auto aShape = inputs[0]->getShape();
-    auto bShape = inputs[1]->getShape();
     auto yShape = outputs[0]->getShape();
+    auto aShape = yShape;
+    auto bShape = yShape;
     auto aStride = inputs[0]->getStride();
+    for (int i = yShape->size() - aStride->size(); i > 0; --i) {
+        aStride->insert(0, ExprObj::constant(0));
+    }
     auto bStride = inputs[1]->getStride();
+    for (int i = yShape->size() - bStride->size(); i > 0; --i) {
+        bStride->insert(0, ExprObj::constant(0));
+    }
     auto yStride = outputs[0]->getStride();
     infiniopTensorDescriptor_t yTensor, aTensor, bTensor;
     CHECK_INFINI_ERROR(infiniopCreateTensorDescriptor(

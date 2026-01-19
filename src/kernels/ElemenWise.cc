@@ -13,11 +13,11 @@ class ElementWiseOp : public Kernel {
         void *const aData = (op->getInput(0)->getRawDataPtr<void *>());
         void *const bData = (op->getInput(1)->getRawDataPtr<void *>());
         size_t workspace_size = 0;
-        void *workspace = runtime->getWorkspace(workspace_size);
         if (type == OpType::Add) {
             CHECK_INFINI_ERROR(infiniopGetAddWorkspaceSize(
                 (infiniopAddDescriptor_t)op->getInfiniOpDesc(),
                 &workspace_size));
+            void *workspace = runtime->getWorkspace(workspace_size);
             CHECK_INFINI_ERROR(
                 infiniopAdd((infiniopAddDescriptor_t)op->getInfiniOpDesc(),
                             workspace, workspace_size, yData, aData, bData,
@@ -26,6 +26,7 @@ class ElementWiseOp : public Kernel {
             CHECK_INFINI_ERROR(infiniopGetMulWorkspaceSize(
                 (infiniopMulDescriptor_t)op->getInfiniOpDesc(),
                 &workspace_size));
+            void *workspace = runtime->getWorkspace(workspace_size);
             CHECK_INFINI_ERROR(
                 infiniopMul((infiniopMulDescriptor_t)op->getInfiniOpDesc(),
                             workspace, workspace_size, yData, aData, bData,
@@ -34,6 +35,7 @@ class ElementWiseOp : public Kernel {
             CHECK_INFINI_ERROR(infiniopGetSubWorkspaceSize(
                 (infiniopSubDescriptor_t)op->getInfiniOpDesc(),
                 &workspace_size));
+            void *workspace = runtime->getWorkspace(workspace_size);
             CHECK_INFINI_ERROR(
                 infiniopSub((infiniopSubDescriptor_t)op->getInfiniOpDesc(),
                             workspace, workspace_size, yData, aData, bData,

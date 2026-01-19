@@ -30,6 +30,24 @@ Tensor GraphBuilderObj::gemm(Tensor A, Tensor B, Tensor C, float alpha,
     }
 }
 
+#define DEFINE_BINARY_OP(OP, TYPE)                                             \
+    Tensor GraphBuilderObj::OP(Tensor A, Tensor B, std::optional<Tensor> Y) {  \
+        if (Y.has_value()) {                                                   \
+            g->addOpWithOutputs<ElementWiseObj>(                               \
+                TYPE, std::move(A), std::move(B), std::move(Y.value()));       \
+            return Y.value();                                                  \
+        } else {                                                               \
+            return g                                                           \
+                ->addOp<ElementWiseObj>(TYPE, std::move(A), std::move(B),      \
+                                        nullptr)                               \
+                ->getOutput(0);                                                \
+        }                                                                      \
+    }
+
+DEFINE_BINARY_OP(add, OpType::Add);
+DEFINE_BINARY_OP(sub, OpType::Sub);
+DEFINE_BINARY_OP(mul, OpType::Mul);
+
 string GraphBuilderObj::printGraph() const { return g->toString(); }
 
 Graph GraphBuilderObj::getGraph() const { return g; }

@@ -80,6 +80,36 @@ def test_dynamic_matmul(runtime, torch_rng_seed):
     assert outputs[0].shape == (1, 3, 10)
     print("✅ Test passed!")
 
+def test_basic_elementwise(runtime, torch_rng_seed):
+    """直接使用conftest.py中定义的fixtures"""
+    print(f"Testing with runtime on device: {runtime}")
+    print(f"Random seed: {torch_rng_seed}")
+
+    # 创建简单模型
+    class AddModel(torch.nn.Module):
+        def forward(self, x, y):
+            return x + y
+
+    model = AddModel()
+    # 随机初始化输入,传入形状可以与真实传入值不一样，但是数据类型需要一致
+    input_info = [((5, 4), "float32"), ((3, 5, 1), "float32")]
+    input_tensors = [
+        torch.as_tensor(np.random.randn(*shape).astype(dtype))
+        for shape, dtype in input_info
+    ]
+
+    # 创建转换器
+    translator = TorchFXTranslator(runtime)
+    translator.import_from_fx(model, input_tensors)
+
+    translator.run(input_tensors)
+    # 获取输出
+    outputs = translator.get_outputs()
+
+    # 验证
+    assert len(outputs) == 1
+    assert outputs[0].shape == (3, 5, 4)
+    print("✅ Test passed!")
 
 if __name__ == "__main__":
     # 可以直接运行这个文件

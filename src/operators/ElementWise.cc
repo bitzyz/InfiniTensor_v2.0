@@ -53,16 +53,12 @@ ElementWiseObj::~ElementWiseObj() {
 
 void ElementWiseObj::createOpDesc() {
     auto yShape = outputs[0]->getShape();
-    auto aShape = yShape;
-    auto bShape = yShape;
-    auto aStride = inputs[0]->getStride();
-    for (int i = yShape->size() - aStride->size(); i > 0; --i) {
-        aStride->insert(0, ExprObj::constant(0));
-    }
-    auto bStride = inputs[1]->getStride();
-    for (int i = yShape->size() - bStride->size(); i > 0; --i) {
-        bStride->insert(0, ExprObj::constant(0));
-    }
+    auto aShape = inputs[0]->getShape();
+    auto aStride = broadcastStride(aShape, inputs[0]->getStride(), yShape);
+
+    auto bShape = inputs[1]->getShape();
+    auto bStride = broadcastStride(bShape, inputs[1]->getStride(), yShape);
+
     auto yStride = outputs[0]->getStride();
     infiniopTensorDescriptor_t yTensor, aTensor, bTensor;
     CHECK_INFINI_ERROR(infiniopCreateTensorDescriptor(
@@ -70,11 +66,11 @@ void ElementWiseObj::createOpDesc() {
         yStride->getConstantValue().data(),
         outputs[0]->getDataType().getType()));
     CHECK_INFINI_ERROR(infiniopCreateTensorDescriptor(
-        &aTensor, aShape->size(), aShape->getConstantValue().data(),
+        &aTensor, yShape->size(), yShape->getConstantValue().data(),
         aStride->getConstantValue().data(),
         inputs[0]->getDataType().getType()));
     CHECK_INFINI_ERROR(infiniopCreateTensorDescriptor(
-        &bTensor, bShape->size(), bShape->getConstantValue().data(),
+        &bTensor, yShape->size(), yShape->getConstantValue().data(),
         bStride->getConstantValue().data(),
         inputs[1]->getDataType().getType()));
     infiniopHandle_t handle = nullptr;

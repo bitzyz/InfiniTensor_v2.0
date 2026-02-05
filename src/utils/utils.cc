@@ -46,4 +46,44 @@ size_t calculateLinearOffset(size_t index, Shape shape, Stride stride) {
     }
     return offset;
 }
+
+float fp16_to_fp32(uint16_t fp16) {
+    // Union for safe type punning
+    union { uint32_t u; float f; } converter;
+
+    // Extract components from FP16
+    uint32_t sign = (fp16 >> 15) & 0x1;
+    uint32_t exponent = (fp16 >> 10) & 0x1F;
+    uint32_t mantissa = fp16 & 0x3FF;
+
+    // Handle special cases
+    if (exponent == 0) {
+        if (mantissa == 0) {
+            // Zero
+            converter.u = sign << 31;
+            return converter.f;
+        } else {
+            // Subnormal number: normalize it
+            while (!(mantissa & 0x400)) {
+                mantissa <<= 1;
+                exponent--;
+            }
+            exponent++;
+            mantissa &= 0x3FF;
+        }
+    } else if (exponent == 31) {
+        // Infinity or NaN
+        converter.u = (sign << 31) | 0x7F800000;
+        if (mantissa) {
+            converter.u |= mantissa; // NaN
+        }
+        return converter.f;
+    }
+
+    // Convert to FP32
+    // FP32: 1 sign bit, 8 exponent bits (bias 127), 23 mantissa bits
+    // FP16: 1 sign bit, 5 exponent bits (bias 15), 10 mantissa bits
+    converter.u = (sign << 31) | ((exponent + 112) << 23) | (mantissa << 13);
+    return converter.f;
+}
 } // namespace infini

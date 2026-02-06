@@ -21,6 +21,12 @@ void bind_graph_builder(py::module &m) {
              py::arg("C"), py::arg("alpha") = 1.0, py::arg("beta") = 1.0,
              py::arg("transA") = false, py::arg("transB") = false,
              py::arg("Y") = py::none())
+        .def("add", &GraphBuilderObj::add, py::arg("A"), py::arg("B"),
+             py::arg("Y") = py::none())
+        .def("sub", &GraphBuilderObj::sub, py::arg("A"), py::arg("B"),
+             py::arg("Y") = py::none())
+        .def("mul", &GraphBuilderObj::mul, py::arg("A"), py::arg("B"),
+             py::arg("Y") = py::none())
         .def("to_string", &GraphBuilderObj::printGraph)
         .def_property_readonly("graph", &GraphBuilderObj::getGraph);
 }

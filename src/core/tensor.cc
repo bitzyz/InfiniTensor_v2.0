@@ -1,6 +1,7 @@
 #include "core/tensor.h"
 #include "core/operator.h"
 #include "core/runtime.h"
+#include "utils/utils.h"
 
 #include <cmath>
 #include <iomanip>
@@ -211,6 +212,9 @@ void TensorObj::printData(const Runtime &runtime, size_t maxElements,
     case INFINI_DTYPE_F64:
         printDataImpl<double>(runtime, maxElements, precision);
         break;
+    case INFINI_DTYPE_F16:
+        printDataImpl<uint16_t>(runtime, maxElements, precision);
+        break;
     case INFINI_DTYPE_I32:
         printDataImpl<int32_t>(runtime, maxElements, precision);
         break;
@@ -242,8 +246,11 @@ void TensorObj::printDataImpl(const Runtime &runtime, size_t maxElements,
         size_t offset =
             calculateLinearOffset(i, constant_shape, constant_stride);
 
-        if constexpr (std::is_floating_point_v<T> ||
-                      std::is_same_v<T, double>) {
+        if constexpr (std::is_same_v<T, uint16_t>) {
+            // FP16: convert to FP32 for display
+            float fp32_value = fp16_to_fp32(typed_data[offset]);
+            std::cout << std::setprecision(precision) << fp32_value;
+        } else if constexpr (std::is_floating_point_v<T>) {
             std::cout << std::setprecision(precision) << typed_data[offset];
         } else if constexpr (std::is_same_v<T, bool>) {
             std::cout << (typed_data[offset] ? "true" : "false");
@@ -262,6 +269,8 @@ template void TensorObj::printDataImpl<float>(const Runtime &, size_t,
                                               int) const;
 template void TensorObj::printDataImpl<double>(const Runtime &, size_t,
                                                int) const;
+template void TensorObj::printDataImpl<uint16_t>(const Runtime &, size_t,
+                                                 int) const;
 template void TensorObj::printDataImpl<int32_t>(const Runtime &, size_t,
                                                 int) const;
 

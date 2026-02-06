@@ -176,6 +176,7 @@ class BaseExprObj : public std::enable_shared_from_this<BaseExprObj> {
     bool isDynamic() const;
     size_t size() const;
     Expr operator[](size_t idx) const;
+    void insert(size_t pos, const Expr &value);
 };
 
 //===============================================

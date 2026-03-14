@@ -6,6 +6,7 @@
 #include "core/op_type.h"
 #include "operators/ElementWise.h"
 #include "operators/Gemm.h"
+#include "operators/Clip.h"
 
 namespace infini {
 
@@ -25,6 +26,7 @@ class GraphBuilderObj {
     Tensor add(Tensor A, Tensor B, std::optional<Tensor> Y = std::nullopt);
     Tensor sub(Tensor A, Tensor B, std::optional<Tensor> Y = std::nullopt);
     Tensor mul(Tensor A, Tensor B, std::optional<Tensor> Y = std::nullopt);
+    Tensor clip(Tensor A, Tensor min_val, Tensor max_val, std::optional<Tensor> Y = std::nullopt);
     string printGraph() const;
 
     Graph getGraph() const;

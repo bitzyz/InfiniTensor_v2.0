@@ -113,6 +113,39 @@ def test_basic_elementwise(runtime, torch_rng_seed):
     print("✅ Test passed!")
 
 
+def test_clip(runtime, torch_rng_seed):
+    """Use fixtures defined in conftest.py directly"""
+    print(f"Testing with runtime on device: {runtime}")
+    print(f"Random seed: {torch_rng_seed}")
+
+    # Create simple model
+    class ClipModel(torch.nn.Module):
+        def forward(self, x, min_val, max_val):
+            return torch.clip(x, min=min_val, max=max_val)
+
+    model = ClipModel()
+
+    # Randomly initialize inputs, passed shapes can differ from actual values, but data types must match
+    input_info = [((5, 4), "float32"), ((5, 4), "float32"), ((5, 4), "float32")]
+    input_tensors = [
+        torch.as_tensor(np.random.randn(*shape).astype(dtype))
+        for shape, dtype in input_info
+    ]
+
+    # Create translator
+    translator = TorchFXTranslator(runtime)
+    translator.import_from_fx(model, input_tensors)
+
+    translator.run(input_tensors)
+    # Get outputs
+    outputs = translator.get_outputs()
+
+    # Verify
+    assert len(outputs) == 1
+    assert outputs[0].shape == (5, 4)
+    print("✅ Test passed!")
+
+
 if __name__ == "__main__":
     # Can run this file directly
     import sys

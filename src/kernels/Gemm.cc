@@ -7,7 +7,9 @@ class GemmOp : public Kernel {
     void compute(const Operator &_op,
                  const RuntimeObj *runtime) const override {
         auto op = as<GemmObj>(_op);
-        op->createOpDesc();
+        if (op->getInfiniOpDesc() == nullptr) {
+            op->createOpDesc();
+        }
         void *yData = (op->getOutput(0)->getRawDataPtr<void *>());
         void *const aData = (op->getInput(0)->getRawDataPtr<void *>());
         void *const bData = (op->getInput(1)->getRawDataPtr<void *>());

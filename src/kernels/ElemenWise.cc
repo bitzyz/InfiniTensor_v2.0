@@ -7,7 +7,9 @@ class ElementWiseOp : public Kernel {
     void compute(const Operator &_op,
                  const RuntimeObj *runtime) const override {
         auto op = as<ElementWiseObj>(_op);
-        op->createOpDesc();
+        if (op->getInfiniOpDesc() == nullptr) {
+            op->createOpDesc();
+        }
         auto type = op->getElemenwiseOpType();
         void *yData = (op->getOutput(0)->getRawDataPtr<void *>());
         void *const aData = (op->getInput(0)->getRawDataPtr<void *>());

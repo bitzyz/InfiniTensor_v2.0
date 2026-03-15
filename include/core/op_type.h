@@ -13,12 +13,23 @@ struct OpType {
         Cast,
         Clip,
         Concat,
+        Conv,
         Div,
         Gemm,
+        Gelu,
+        LayerNorm,
+        LogSoftmax,
+        LPNorm,
         Mul,
         MatMul,
         Relu,
+        RMSNorm,
+        Sigmoid,
+        Silu,
+        Softmax,
+        Softplus,
         Sub,
+        Tanh,
         Transpose,
 
     } type;
@@ -43,7 +54,19 @@ struct OpType {
             CASE(Div);
             CASE(Cast);
             CASE(Clip);
+            CASE(Conv);
+            CASE(Gemm);
+            CASE(Gelu);
+            CASE(LayerNorm);
+            CASE(LogSoftmax);
+            CASE(LPNorm);
             CASE(Relu);
+            CASE(RMSNorm);
+            CASE(Sigmoid);
+            CASE(Silu);
+            CASE(Softmax);
+            CASE(Softplus);
+            CASE(Tanh);
             CASE(Transpose);
             CASE(Concat);
             CASE(MatMul);

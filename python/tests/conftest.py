@@ -1,7 +1,56 @@
 import pytest
 import torch
 import infinitensor
+import pyinfinitensor
 from infinitensor import Runtime, DeviceType
+
+
+# ---------------------------------------------------------------------------
+# Device availability helper
+# ---------------------------------------------------------------------------
+
+def _device_available(device_type: "DeviceType") -> bool:
+    """Return True if the given device can be successfully initialised."""
+    try:
+        Runtime.setup(device_type, 0)
+        return True
+    except Exception:
+        return False
+
+
+# Pre-computed availability at import time (once per session)
+_device_available_cache: dict = {}
+
+
+def device_available(device_type: "DeviceType") -> bool:
+    if device_type not in _device_available_cache:
+        _device_available_cache[device_type] = _device_available(device_type)
+    return _device_available_cache[device_type]
+
+
+# Convenience pytest marks; tests decorated with these are skipped automatically
+# when the target hardware is not present.
+requires_cpu     = pytest.mark.skipif(
+    not _device_available(DeviceType.CPU),
+    reason="CPU runtime not available")
+requires_cuda    = pytest.mark.skipif(
+    not _device_available(DeviceType.CUDA),
+    reason="CUDA device not available")
+requires_ascend  = pytest.mark.skipif(
+    not _device_available(DeviceType.ASCEND),
+    reason="ASCEND device not available")
+requires_metax   = pytest.mark.skipif(
+    not _device_available(DeviceType.METAX),
+    reason="METAX device not available")
+requires_moore   = pytest.mark.skipif(
+    not _device_available(DeviceType.MOORE),
+    reason="MOORE device not available")
+requires_mlu     = pytest.mark.skipif(
+    not _device_available(DeviceType.MLU),
+    reason="MLU (Cambricon) device not available")
+requires_iluvatar = pytest.mark.skipif(
+    not _device_available(DeviceType.ILUVATAR),
+    reason="ILUVATAR device not available")
 
 
 def pytest_addoption(parser):

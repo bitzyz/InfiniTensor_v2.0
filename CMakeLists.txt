@@ -72,7 +72,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -UNDEBUG") # Enable asse
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -UNDEBUG") # Enable assertion
 
 # Source files
-file(GLOB_RECURSE SRC src/core/*.cc src/kernels/*.cc src/operators/*.cc src/utils/*.cc)
+file(GLOB_RECURSE SRC CONFIGURE_DEPENDS src/core/*.cc src/kernels/*.cc src/operators/*.cc src/utils/*.cc)
 
 # Libraries
 add_library(InfiniTensor SHARED ${SRC})

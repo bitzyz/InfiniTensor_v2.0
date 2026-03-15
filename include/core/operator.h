@@ -33,6 +33,8 @@ class OperatorObj : public Object {
     ElementType getNumOutputs() const;
     virtual void createOpDesc() = 0;
     void *getInfiniOpDesc() const;
+    void replaceInput(Tensor t1, Tensor t2);
+    void clearConnections();
 
   protected:
     virtual optional<vector<ShapeExpr>> inferShape() = 0;
@@ -44,7 +46,6 @@ class OperatorObj : public Object {
     void addSuccessors(const Operator &op);
     void removePredecessors(const Operator &op);
     void removeSuccessors(const Operator &op);
-    void replaceInput(Tensor t1, Tensor t2);
 };
 
 } // namespace infini

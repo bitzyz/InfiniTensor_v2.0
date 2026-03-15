@@ -42,12 +42,16 @@ class TensorObj : public Object {
     void setStride(Stride stride_);
     void setStride(StrideExpr stride_);
     Blob getData() const;
+    bool hasData() const;
+    infiniDevice_t getDevice() const;
     ElementType getElement() const;
     ElementType getStorageSize() const;
     ElementType getTotalBytes() const;
     ElementType getRank() const;
     OpVec getTargets() const;
     Operator getSource() const;
+    bool isConstant() const;
+    bool isGraphInput() const;
 
     string toString() const override;
     // ============= TensorObj Data Operations==============
@@ -71,6 +75,8 @@ class TensorObj : public Object {
     void addTarget(const Operator &op);
     void setSource(const Operator &op);
     void removeTarget(const Operator &op);
+    void clearTargets();
+    void clearSource();
     StrideExpr computeContiguousStride(const ShapeExpr &shape) const;
     bool checkValid() const;
     ShapeExpr makeShapeExpr(const Shape &shape) const;

@@ -26,6 +26,11 @@ class RuntimeObj : public std::enable_shared_from_this<RuntimeObj> {
     mutable std::shared_mutex ctx_mutex;
     static thread_local Context tls_context_cache;
     static thread_local std::thread::id tls_thread_id;
+    void ensureWorkspace(size_t size) const;
+    void runOperators(const Graph &graph, const Context &ctx) const;
+    bool isCudaGraphSupported(const Context &ctx) const;
+    void compileCudaGraph(const Graph &graph, const Context &ctx) const;
+    void launchCudaGraph(const Graph &graph, const Context &ctx) const;
 
   public:
     RuntimeObj() = default;
@@ -49,9 +54,9 @@ class RuntimeObj : public std::enable_shared_from_this<RuntimeObj> {
     void run(const Graph &graph) const;
     void dataMalloc(const Graph &graph);
     void *allocHost(size_t size);
-    void *allocDevice(size_t size);
+    void *allocDevice(size_t size) const;
     void deallocHost(void *ptr);
-    void deallocDevice(void *ptr);
+    void deallocDevice(void *ptr) const;
     void memcpy(void *dst, const void *src, size_t size,
                 infinirtMemcpyKind_t kind);
     void memcpyAsync(void *dst, const void *src, size_t size,
@@ -65,8 +70,6 @@ class RuntimeObj : public std::enable_shared_from_this<RuntimeObj> {
     void *getWorkspace(size_t size) const;
 
     bool isCpu() const;
-
-    // void initWorkspace(size_t size = 7ll << 30);
 };
 } // namespace infini
 #endif // RUNTIME_H

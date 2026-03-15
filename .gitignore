@@ -45,3 +45,9 @@ InfiniCore/
 *.onnx
 *.pb
 *.npy
+
+.cache/
+InfiniCore
+resume
+compile_commands.json
+tests.py

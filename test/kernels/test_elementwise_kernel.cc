@@ -7,7 +7,7 @@ namespace infini {
 
 // Thread test parameters
 template <typename T> struct ThreadTestParams {
-    infiniDevice_t device = INFINI_DEVICE_CPU;
+    infiniDevice_t device = INFINI_DEVICE_NVIDIA;
     int deviceId = 0;
     OpType opType = OpType::Unknown;
     Shape shapeA;
@@ -102,7 +102,7 @@ void runMultiThreadTest(
     ThreadTestParams<T> cpuParams, gpuParams;
 
     // CPU thread parameters
-    cpuParams.device = INFINI_DEVICE_CPU;
+    cpuParams.device = INFINI_DEVICE_NVIDIA;
     cpuParams.deviceId = 0;
     cpuParams.opType = opType;
     cpuParams.shapeA = shapeA;
@@ -280,7 +280,7 @@ TEST(ElementWise, Sub_MultiThread_F16) {
 TEST(ElementWise, Add_SingleDevice_CPU) {
     RuntimeObj::init();
     Runtime &runtime = RuntimeObj::getInstance();
-    runtime->initThreadContext(INFINI_DEVICE_CPU, 0);
+    runtime->initThreadContext(INFINI_DEVICE_NVIDIA, 0);
 
     Shape shapeA = {3, 1};
     Shape shapeB = {2, 3, 4};

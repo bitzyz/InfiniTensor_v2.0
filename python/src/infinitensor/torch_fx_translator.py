@@ -1,4 +1,5 @@
 import ctypes
+import re
 import pyinfinitensor
 from pyinfinitensor import (
     GraphBuilder,
@@ -11,7 +12,7 @@ from pyinfinitensor import (
 import torch
 from torch import fx
 from torch.export import export, Dim
-from typing import Callable, Dict, List, Tuple, Optional, Union
+from typing import Any, Callable, Dict, List, Tuple, Optional, Union
 from .converter import registry
 import inspect
 
@@ -34,6 +35,7 @@ class TorchFXTranslator:
         self.dynamic_input_infos: List[Tuple[Tuple, Tuple, str]] = (
             []
         )  # Dynamic input information (shape, stride, dtype)
+        self._owned_torch_tensors: List[torch.Tensor] = []
         if custom_converters:
             registry.update(custom_converters)
 
@@ -135,7 +137,10 @@ class TorchFXTranslator:
                 ):
                     # Handle symbolic dimension
                     sym_str = str(st)
-                    assert self.symbols.get(sym_str)
+                    # Stride symbol may appear before its matching shape symbol
+                    # (for example 3D contiguous tensors). Register lazily.
+                    if not self.symbols.get(sym_str):
+                        self._add_symbol(sym_str, i, j)
                     tensor_stride.insert(0, self.symbols[sym_str]["var"])
                 else:
                     # Concrete dimension
@@ -149,12 +154,14 @@ class TorchFXTranslator:
         if hasattr(target, "_overloadpacket"):
             op_name = str(target._overloadpacket).split(".")[-1]
             overload = target._overloadname
+            func_name = f"{op_name}.{overload}"
             function = registry.get_method_converter(op_name, overload)
         else:
             if hasattr(target, "__name__"):
                 op_base_name = target.__name__
             else:
                 op_base_name = str(target)
+            func_name = op_base_name
             function = registry.get_method_converter(op_base_name)
         if function:
             try:
@@ -174,6 +181,7 @@ class TorchFXTranslator:
                 self.outputs.append(self.tensors[arg])
         else:
             self.outputs.append(self.tensors[args[0]])
+        self.builder.set_outputs(self.outputs)
 
     def _retrieve_args(self, node):
         if isinstance(node, fx.Node):
@@ -326,7 +334,7 @@ class TorchFXTranslator:
                     else:
                         if self.symbols[shape_ele]["value"] != s:
                             raise ValueError(
-                                f"The input {i}, dim {j} shape should equal {s}, but is {self.symbols[shape_ele]['value']}"
+                                f"The input {i}, dim {j} shape should equal {self.symbols[shape_ele]['value']}, but is {s}"
                             )
                 else:
                     if s != shape_ele:

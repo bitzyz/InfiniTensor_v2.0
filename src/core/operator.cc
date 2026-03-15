@@ -70,6 +70,11 @@ void OperatorObj::replaceInput(Tensor t1, Tensor t2) {
     }
 }
 
+void OperatorObj::clearConnections() {
+    predecessors.clear();
+    successors.clear();
+}
+
 void OperatorObj::addPredecessors(const Operator &op) {
     predecessors.emplace_back(op);
 }

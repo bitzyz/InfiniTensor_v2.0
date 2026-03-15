@@ -69,6 +69,10 @@ void TensorObj::setStride(Stride stride_) { stride = makeStrideExpr(stride_); }
 
 Blob TensorObj::getData() const { return data; }
 
+bool TensorObj::hasData() const { return data != nullptr; }
+
+infiniDevice_t TensorObj::getDevice() const { return device; }
+
 void TensorObj::setData(void *data_) {
     IT_ASSERT(data_ != nullptr);
     data = std::make_shared<BlobObj>(data_);
@@ -125,6 +129,14 @@ OpVec TensorObj::getTargets() const { return wrefs_to_refs(targets); }
 
 Operator TensorObj::getSource() const { return source.lock(); }
 
+bool TensorObj::isConstant() const {
+    return hasData() && getSource() == nullptr;
+}
+
+bool TensorObj::isGraphInput() const {
+    return !hasData() && getSource() == nullptr;
+}
+
 string TensorObj::toString() const {
     // Convert data pointer to string
     std::stringstream ss;
@@ -157,6 +169,10 @@ void TensorObj::removeTarget(const Operator &op) {
             ++itr;
     }
 }
+
+void TensorObj::clearTargets() { targets.clear(); }
+
+void TensorObj::clearSource() { source.reset(); }
 
 StrideExpr TensorObj::computeContiguousStride(const ShapeExpr &shape) const {
     auto rank = shape->size();

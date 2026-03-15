@@ -43,8 +43,8 @@ StrideExpr create_stride_expr_from_pyobject(py::object strides) {
                 int64_t value = stride.cast<int64_t>();
                 stride_exprs.push_back(ExprObj::constant(value));
             } else if (py::isinstance<py::str>(stride)) {
-                std::string name = stride.cast<std::string>();
-                stride_exprs.push_back(ExprObj::variable(name));
+                auto name = stride.cast<std::string>();
+                stride_exprs.push_back(ExprObj::parseExpr(name));
             } else {
                 throw py::type_error("Stride must be int, str");
             }
@@ -93,6 +93,7 @@ void bind_tensor(py::module &m) {
              })
         .def("set_data",
              [](TensorObj &self, uintptr_t ptr, Runtime &runtime) {
+                 self.reset();
                  self.setData(reinterpret_cast<void *>(ptr));
                  if (!runtime->isCpu()) {
                      self.copyToDevice(runtime);

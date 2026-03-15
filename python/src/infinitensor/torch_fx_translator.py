@@ -8,10 +8,14 @@ from pyinfinitensor import (
     ShapeExpr,
     StrideExpr,
 )
+import re
 import torch
 from torch import fx
-from torch.export import export, Dim
+from torch.export import export, Dim, ExportedProgram
 from typing import Callable, Dict, List, Tuple, Optional, Union
+
+from torch.fx.experimental.sym_node import SymNode
+
 from .converter import registry
 import inspect
 
@@ -19,7 +23,7 @@ import inspect
 class TorchFXTranslator:
     def __init__(self, runtime: Runtime, custom_converters: Optional[Dict] = None):
         self.runtime = runtime
-        self.module = None
+        self.module: ExportedProgram = None
         self.builder = None
         self.nodes_map: Dict[fx.Node, Any] = (
             {}
@@ -28,6 +32,7 @@ class TorchFXTranslator:
         self.params: Dict[torch.Tensor, Tensor] = {}  # Store all parameters
         self.outputs: List[Tensor] = []  # Store output tensors
         self.input_vars: Dict[str, Tensor] = {}
+        # 类型系统，动态维度
         self.symbols = (
             {}
         )  # Symbol -> {'var': variable name, 'value': concrete value, 'info': detailed info}
@@ -73,6 +78,7 @@ class TorchFXTranslator:
             dynamic_shapes[p] = {dim: Dim.AUTO for dim in range(t.dim())}
         return dynamic_shapes
 
+    # 创建c++ tensor
     def _create_input_tensors(
         self, input_list: List[torch.Tensor], is_real_tensor: bool
     ) -> List:
@@ -92,6 +98,7 @@ class TorchFXTranslator:
                     ShapeExpr(list(torch_tensor.size())), dtype
                 )
                 if torch_tensor.numel() > 0:
+                    # python c++内存布局一致吗，生命周期怎么保证的？
                     tensor.set_data(torch_tensor.data_ptr(), self.runtime)
                 input_tensors.append(tensor)
                 self.input_vars[f"inp_{i}"] = tensor
@@ -104,6 +111,17 @@ class TorchFXTranslator:
                 self.input_vars[f"inp_{i}"] = tensor
         return input_tensors
 
+    def _st_expr_to_str(self, st):
+        if not hasattr(st, "node") or len(st.node.expr.args) == 0:
+            sym_str = str(st)
+            assert str(sym_str).isdigit() or self.symbols.get(sym_str)
+            return (
+                sym_str if str(sym_str).isdigit() else self.symbols.get(sym_str)["var"]
+            )
+        else:
+            if st.node.expr.is_Mul:
+                return f"({self._st_expr_to_str(st.node.expr.args[0])}*{self._st_expr_to_str(st.node.expr.args[1])})"
+
     def _process_dynamic_shapes(self, fake_inputs):
         """Handle dynamic shapes"""
         for i, tensor in enumerate(fake_inputs.values()):
@@ -113,30 +131,33 @@ class TorchFXTranslator:
             tensor_shape = []
             tensor_stride = []
             dtype = dtype_from_string(str(tensor.dtype))
-            for j, (dim, st) in enumerate(zip(shape, stride[::-1])):
+            for j, (dim, st) in enumerate(zip(shape[::-1], stride[::-1])):
                 # Handle shape information
-                if (
+                # Check if dimension is symbolic (has a node) vs concrete (just a number)
+                is_symbolic = (
                     hasattr(torch, "SymInt")
                     and isinstance(dim, torch.SymInt)
-                    and not str(dim).isdigit()
-                ):
+                    and hasattr(dim, "node")  # Symbolic dims have a node
+                )
+                if is_symbolic:
                     # Handle symbolic dimension
                     sym_str = str(dim)
                     self._add_symbol(sym_str, i, j)
-                    tensor_shape.append(self.symbols[sym_str]["var"])
+                    tensor_shape.insert(0, self.symbols[sym_str]["var"])
                 else:
                     # Concrete dimension
-                    tensor_shape.append(int(dim))
+                    tensor_shape.insert(0, int(dim))
                 # Handle stride information
-                if (
+                is_stride_symbolic = (
                     hasattr(torch, "SymInt")
                     and isinstance(st, torch.SymInt)
-                    and not str(st).isdigit()
-                ):
+                    and hasattr(st, "node")  # Symbolic strides have a node
+                )
+                if is_stride_symbolic:
                     # Handle symbolic dimension
-                    sym_str = str(st)
-                    assert self.symbols.get(sym_str)
-                    tensor_stride.insert(0, self.symbols[sym_str]["var"])
+                    sym_str = self._st_expr_to_str(st)
+                    # assert self.symbols.get(sym_str)
+                    tensor_stride.insert(0, sym_str)
                 else:
                     # Concrete dimension
                     tensor_stride.insert(0, int(st))

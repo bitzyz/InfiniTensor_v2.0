@@ -22,6 +22,7 @@ class TensorObj : public Object {
     vector<WRef<OperatorObj>> targets;
     WRef<OperatorObj> source;
     infiniDevice_t device = INFINI_DEVICE_CPU;
+    bool user_managed = false; // if memory is managed by suser
 
   public:
     TensorObj(ShapeExpr symbolic_shape, DataType dtype);
@@ -48,10 +49,10 @@ class TensorObj : public Object {
     ElementType getRank() const;
     OpVec getTargets() const;
     Operator getSource() const;
-
     string toString() const override;
     // ============= TensorObj Data Operations==============
-    void setData(void *data_);
+    void setData(void *data_, bool user_managed = true);
+    void reset();
     void dataMalloc(const Runtime &runtime);
 
     template <typename T> T getRawDataPtr() const {
@@ -65,13 +66,13 @@ class TensorObj : public Object {
                    int precision = 4) const;
     void copyToHost(const Runtime &runtime);
     void copyToDevice(const Runtime &runtime);
+    static StrideExpr computeContiguousStride(const ShapeExpr &shape);
 
   private:
     // ============= Change Graph Operations==============
     void addTarget(const Operator &op);
     void setSource(const Operator &op);
     void removeTarget(const Operator &op);
-    StrideExpr computeContiguousStride(const ShapeExpr &shape) const;
     bool checkValid() const;
     ShapeExpr makeShapeExpr(const Shape &shape) const;
     StrideExpr makeStrideExpr(const Stride &stride) const;

@@ -69,23 +69,28 @@ void TensorObj::setStride(Stride stride_) { stride = makeStrideExpr(stride_); }
 
 Blob TensorObj::getData() const { return data; }
 
-void TensorObj::setData(void *data_) {
+void TensorObj::setData(void *data_, bool user_managed_) {
     IT_ASSERT(data_ != nullptr);
+    user_managed = user_managed_;
     data = std::make_shared<BlobObj>(data_);
 }
 
+void TensorObj::reset() { device = INFINI_DEVICE_CPU; }
+
 void TensorObj::dataMalloc(const Runtime &runtime) {
-    if (data == nullptr) {
-        data = make_ref<BlobObj>(runtime->allocDevice(getTotalBytes()));
-    } else {
-        if (runtime->getCurrentThreadContext()->device != device &&
-            device == INFINI_DEVICE_CPU) {
-            void *data_ptr = runtime->allocDevice(getTotalBytes());
-            runtime->memcpy(data_ptr, data->getPtr<void *>(), getTotalBytes(),
-                            INFINIRT_MEMCPY_H2D);
-            setData(data_ptr);
+    size_t required_size = getTotalBytes();
+    if (data != nullptr) {
+        if (user_managed)
+            return;
+
+        if (device == INFINI_DEVICE_CPU) {
+            runtime->deallocHost(data->getPtr<void *>());
+        } else {
+            runtime->deallocDevice(data->getPtr<void *>());
         }
+        data = nullptr;
     }
+    data = make_ref<BlobObj>(runtime->allocDevice(required_size));
     device = runtime->getCurrentThreadContext()->device;
 }
 
@@ -158,7 +163,7 @@ void TensorObj::removeTarget(const Operator &op) {
     }
 }
 
-StrideExpr TensorObj::computeContiguousStride(const ShapeExpr &shape) const {
+StrideExpr TensorObj::computeContiguousStride(const ShapeExpr &shape) {
     auto rank = shape->size();
     vector<Expr> strides(rank);
     Expr acc = ExprObj::constant(1);
@@ -281,7 +286,7 @@ void TensorObj::copyToHost(const Runtime &runtime) {
     runtime->memcpy(data_ptr, data->getPtr<void *>(), getTotalBytes(),
                     INFINIRT_MEMCPY_D2H);
     runtime->deallocDevice(data->getPtr<void *>());
-    setData(data_ptr);
+    data = std::make_shared<BlobObj>(data_ptr);
     device = INFINI_DEVICE_CPU;
 }
 
@@ -291,7 +296,7 @@ void TensorObj::copyToDevice(const Runtime &runtime) {
     void *data_ptr = runtime->allocDevice(getTotalBytes());
     runtime->memcpy(data_ptr, data->getPtr<void *>(), getTotalBytes(),
                     INFINIRT_MEMCPY_H2D);
-    setData(data_ptr);
+    data = std::make_shared<BlobObj>(data_ptr);
     device = runtime->getCurrentThreadContext()->device;
 }
 }; // namespace infini

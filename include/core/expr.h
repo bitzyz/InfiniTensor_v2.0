@@ -50,6 +50,7 @@ class ExprObj : public std::enable_shared_from_this<ExprObj> {
     static Expr createMod(const Expr &lhs, const Expr &rhs);
     static Expr createMin(const Expr &lhs, const Expr &rhs);
     static Expr createMax(const Expr &lhs, const Expr &rhs);
+    static Expr parseExpr(const std::string &exprStr);
 };
 Expr operator+(const Expr &lhs, const Expr &rhs);
 
@@ -124,6 +125,7 @@ class BinaryExprObj : public ExprObj {
         evaluate(const std::unordered_map<std::string, ElementType> &values)   \
             const override;                                                    \
         Expr simplify() const override;                                        \
+        std::optional<ElementType> asConstant() const override;                \
     };
 
 DECL_BINARY_EXPR(AddExprObj)

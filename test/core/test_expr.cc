@@ -190,6 +190,10 @@ TEST_F(ExprTest, ComplexExpression) {
     auto complexExpr = (a * b) + (b / c) - (a % c);
     EXPECT_EQ(complexExpr->toString(), "(((a * b) + (b / c)) - (a % c))");
 
+    auto complexExprStr = "(((aa * b) + (b / c)) - (aa % c))";
+    auto expr2 = ExprObj::parseExpr(complexExprStr);
+    EXPECT_EQ(expr2->toString(), "(((aa * b) + (b / c)) - (aa % c))");
+
     auto complexResult = complexExpr->evaluate(env);
     EXPECT_TRUE(complexResult.has_value());
     EXPECT_EQ(*complexResult, 15); // (5*3) + (3/2) - (5%2) = 15 + 1 - 1 = 15

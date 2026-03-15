@@ -1,6 +1,136 @@
 #include "core/expr.h"
+#include <cctype>
 
 namespace infini {
+
+//==================================
+// Expression Parser (supports + - * / and parentheses)
+//==================================
+class ExprParser {
+  private:
+    std::string input;
+    size_t pos;
+
+    void skipWhitespace() {
+        while (pos < input.size() && std::isspace(input[pos]))
+            pos++;
+    }
+
+    char peek() {
+        skipWhitespace();
+        return pos < input.size() ? input[pos] : '\0';
+    }
+
+    bool match(char c) {
+        skipWhitespace();
+        if (pos < input.size() && input[pos] == c) {
+            pos++;
+            return true;
+        }
+        return false;
+    }
+
+    // Primary: number, variable, parentheses
+    Expr parsePrimary() {
+        skipWhitespace();
+
+        // Parentheses
+        if (match('(')) {
+            Expr expr = parseAddSub();
+            match(')');
+            return expr;
+        }
+
+        // Negative number
+        if (peek() == '-') {
+            pos++;
+            size_t start = pos;
+            while (pos < input.size() && std::isdigit(input[pos]))
+                pos++;
+            if (pos > start)
+                return ExprObj::constant(
+                    -std::stoi(input.substr(start, pos - start)));
+            return nullptr;
+        }
+
+        // Number
+        if (std::isdigit(peek())) {
+            size_t start = pos;
+            while (pos < input.size() && std::isdigit(input[pos]))
+                pos++;
+            return ExprObj::constant(
+                std::stoi(input.substr(start, pos - start)));
+        }
+
+        // Variable
+        if (std::isalpha(peek()) || peek() == '_') {
+            size_t start = pos;
+            while (pos < input.size() &&
+                   (std::isalnum(input[pos]) || input[pos] == '_'))
+                pos++;
+            return ExprObj::variable(input.substr(start, pos - start));
+        }
+
+        return nullptr;
+    }
+
+    // Term: handles * / % (higher precedence)
+    Expr parseMulDiv() {
+        Expr left = parsePrimary();
+        while (left) {
+            if (match('*')) {
+                Expr right = parsePrimary();
+                if (!right)
+                    return nullptr;
+                left = ExprObj::createMul(left, right);
+            } else if (match('/')) {
+                Expr right = parsePrimary();
+                if (!right)
+                    return nullptr;
+                left = ExprObj::createDiv(left, right);
+            } else if (match('%')) {
+                Expr right = parsePrimary();
+                if (!right)
+                    return nullptr;
+                left = ExprObj::createMod(left, right);
+            } else {
+                break;
+            }
+        }
+        return left;
+    }
+
+    // Expr: handles + - (lower precedence)
+    Expr parseAddSub() {
+        Expr left = parseMulDiv();
+        while (left) {
+            if (match('+')) {
+                Expr right = parseMulDiv();
+                if (!right)
+                    return nullptr;
+                left = ExprObj::createAdd(left, right);
+            } else if (match('-')) {
+                Expr right = parseMulDiv();
+                if (!right)
+                    return nullptr;
+                left = ExprObj::createSub(left, right);
+            } else {
+                break;
+            }
+        }
+        return left;
+    }
+
+  public:
+    ExprParser(const std::string &s) : input(s), pos(0) {}
+    Expr parse() { return parseAddSub(); }
+};
+
+Expr ExprObj::parseExpr(const std::string &exprStr) {
+    ExprParser parser(exprStr);
+    return parser.parse();
+}
+
 //==================================
 // Static Factory Functions Implementation
 //==================================
@@ -176,6 +306,14 @@ bool BinaryExprObj::equals(const Expr &other) const {
         if (c1 && c2)                                                          \
             return ExprObj::constant(*c1 OP * c2);                             \
         return Expr(new CLASS(L, R));                                          \
+    }                                                                          \
+                                                                               \
+    std::optional<ElementType> CLASS::asConstant() const {                     \
+        auto c1 = lhs->asConstant();                                           \
+        auto c2 = rhs->asConstant();                                           \
+        if (c1 && c2)                                                          \
+            return {(*c1)OP(*c2)};                                             \
+        return std::nullopt;                                                   \
     }
 
 IMPLEMENT_BINARY_EXPR(AddExprObj, ADD, +, " + ")

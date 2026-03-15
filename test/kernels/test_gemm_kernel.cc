@@ -39,12 +39,35 @@ void gemmDeviceThreadFunc(GemmThreadTestParams<T> &params) {
     auto op = g->addOp<GemmObj>(A, B, nullptr, nullptr, params.alpha,
                                 params.beta, params.transA, params.transB);
 
+    // Set input data (CPU pointers) BEFORE dataMalloc to skip GPU allocation
     A->setData(params.inputAData.data());
     B->setData(params.inputBData.data());
+    // Allocate memory (output only, inputs are externally managed)
     runtime->dataMalloc(g);
+
+    // Track device pointers for cleanup
+    void *deviceA = nullptr;
+    void *deviceB = nullptr;
+
+    // For GPU, manually copy input data from CPU to GPU device memory
+    if (params.device != INFINI_DEVICE_CPU) {
+        deviceA = runtime->allocDevice(A->getTotalBytes());
+        deviceB = runtime->allocDevice(B->getTotalBytes());
+        runtime->memcpy(deviceA, params.inputAData.data(), A->getTotalBytes(),
+                        INFINIRT_MEMCPY_H2D);
+        runtime->memcpy(deviceB, params.inputBData.data(), B->getTotalBytes(),
+                        INFINIRT_MEMCPY_H2D);
+        A->setData(deviceA);
+        B->setData(deviceB);
+    }
 
     // Run computation
     runtime->run(g);
+
+    // Synchronize to ensure computation is complete before copying data
+    if (!runtime->isCpu()) {
+        runtime->synchronize();
+    }
 
     // Get output and copy to host
     auto output = op->getOutput(0);
@@ -63,15 +86,34 @@ void gemmDeviceThreadFunc(GemmThreadTestParams<T> &params) {
     }
 
     // Copy result data
-    void *hostPtr = runtime->allocHost(output->getTotalBytes());
-    runtime->memcpy(hostPtr, devicePtr, output->getTotalBytes(),
-                    INFINIRT_MEMCPY_D2H);
+    if (runtime->isCpu()) {
+        // For CPU, data is already in host memory
+        copyAndConvertData(params.outputData, devicePtr, numElements,
+                           params.dataType);
+    } else {
+        // For GPU, need to copy from device to host
+        void *hostPtr = runtime->allocHost(output->getTotalBytes());
+        runtime->memcpy(hostPtr, devicePtr, output->getTotalBytes(),
+                        INFINIRT_MEMCPY_D2H);
+        copyAndConvertData(params.outputData, hostPtr, numElements,
+                           params.dataType);
+        runtime->deallocHost(hostPtr);
+    }
 
-    // Use generic function for data copy and conversion
-    copyAndConvertData(params.outputData, hostPtr, numElements,
-                       params.dataType);
+    // Clean up device memory
+    if (params.device != INFINI_DEVICE_CPU) {
+        runtime->deallocDevice(deviceA);
+        runtime->deallocDevice(deviceB);
+        // Also clean up output memory allocated by dataMalloc
+        runtime->deallocDevice(devicePtr);
+        // Clean up workspace to free GPU memory
+        auto ctx = runtime->getCurrentThreadContext();
+        if (ctx->workspace) {
+            runtime->deallocDevice(ctx->workspace);
+            ctx->workspace = nullptr;
+        }
+    }
 
-    runtime->deallocHost(hostPtr);
     params.completed = true;
 }
 
@@ -119,7 +161,7 @@ void runGemmMultiThreadTest(
 
     // GPU thread parameters
     gpuParams.device = INFINI_DEVICE_NVIDIA;
-    gpuParams.deviceId = 0;
+    gpuParams.deviceId = 5;
     gpuParams.shapeA = shapeA;
     gpuParams.shapeB = shapeB;
     gpuParams.dataType = dataType;
@@ -303,7 +345,7 @@ TEST(Gemm, SingleDevice_CPU) {
 TEST(Gemm, SingleDevice_NVIDIA_F32) {
     RuntimeObj::init();
     Runtime &runtime = RuntimeObj::getInstance();
-    runtime->initThreadContext(INFINI_DEVICE_NVIDIA, 0);
+    runtime->initThreadContext(INFINI_DEVICE_NVIDIA, 5);
 
     Shape shapeA = {3, 5};
     Shape shapeB = {5, 2};
@@ -321,9 +363,21 @@ TEST(Gemm, SingleDevice_NVIDIA_F32) {
     std::iota(inputAData.begin(), inputAData.end(), 1);
     std::iota(inputBData.begin(), inputBData.end(), 1);
 
+    // Set input data (CPU pointers) BEFORE dataMalloc to skip GPU allocation
     A->setData(inputAData.data());
     B->setData(inputBData.data());
+    // Allocate memory (output only, inputs are externally managed)
     runtime->dataMalloc(g);
+
+    // Manually copy input data from CPU to GPU device memory
+    void *deviceA = runtime->allocDevice(A->getTotalBytes());
+    void *deviceB = runtime->allocDevice(B->getTotalBytes());
+    runtime->memcpy(deviceA, inputAData.data(), A->getTotalBytes(),
+                    INFINIRT_MEMCPY_H2D);
+    runtime->memcpy(deviceB, inputBData.data(), B->getTotalBytes(),
+                    INFINIRT_MEMCPY_H2D);
+    A->setData(deviceA);
+    B->setData(deviceB);
 
     // Execute computation
     runtime->run(g);
@@ -332,13 +386,22 @@ TEST(Gemm, SingleDevice_NVIDIA_F32) {
     auto output = op->getOutput(0);
     std::cout << "NVIDIA F32 Output Data: " << std::endl;
     output->printData(runtime);
+
+    // Clean up device memory
+    runtime->deallocDevice(deviceA);
+    runtime->deallocDevice(deviceB);
+    // Clean up output memory allocated by dataMalloc
+    auto outputData = output->getData();
+    if (outputData) {
+        runtime->deallocDevice(outputData->getRawDataPtr());
+    }
 }
 
 // Single device test - NVIDIA F16
 TEST(Gemm, SingleDevice_NVIDIA_F16) {
     RuntimeObj::init();
     Runtime &runtime = RuntimeObj::getInstance();
-    runtime->initThreadContext(INFINI_DEVICE_NVIDIA, 0);
+    runtime->initThreadContext(INFINI_DEVICE_NVIDIA, 5);
 
     Shape shapeA = {3, 5};
     Shape shapeB = {5, 2};
@@ -356,9 +419,21 @@ TEST(Gemm, SingleDevice_NVIDIA_F16) {
     std::iota(inputAData.begin(), inputAData.end(), 1);
     std::iota(inputBData.begin(), inputBData.end(), 1);
 
+    // Set input data (CPU pointers) BEFORE dataMalloc to skip GPU allocation
     A->setData(inputAData.data());
     B->setData(inputBData.data());
+    // Allocate memory (output only, inputs are externally managed)
     runtime->dataMalloc(g);
+
+    // Manually copy input data from CPU to GPU device memory
+    void *deviceA = runtime->allocDevice(A->getTotalBytes());
+    void *deviceB = runtime->allocDevice(B->getTotalBytes());
+    runtime->memcpy(deviceA, inputAData.data(), A->getTotalBytes(),
+                    INFINIRT_MEMCPY_H2D);
+    runtime->memcpy(deviceB, inputBData.data(), B->getTotalBytes(),
+                    INFINIRT_MEMCPY_H2D);
+    A->setData(deviceA);
+    B->setData(deviceB);
 
     // Execute computation
     runtime->run(g);
@@ -367,6 +442,15 @@ TEST(Gemm, SingleDevice_NVIDIA_F16) {
     auto output = op->getOutput(0);
     std::cout << "NVIDIA F16 Output Data: " << std::endl;
     output->printData(runtime);
+
+    // Clean up device memory
+    runtime->deallocDevice(deviceA);
+    runtime->deallocDevice(deviceB);
+    // Clean up output memory allocated by dataMalloc
+    auto outputData = output->getData();
+    if (outputData) {
+        runtime->deallocDevice(outputData->getRawDataPtr());
+    }
 }
 #endif
 

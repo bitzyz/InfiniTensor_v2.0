@@ -1,5 +1,5 @@
 #include "core/runtime.h"
-#include "operators/ElementWise.h"
+#include "operators/Clip.h"
 #include "utils/test_utils.h"
 #include "gtest/gtest.h"
 
@@ -9,12 +9,13 @@ namespace infini {
 template <typename T> struct ThreadTestParams {
     infiniDevice_t device = INFINI_DEVICE_CPU;
     int deviceId = 0;
-    OpType opType = OpType::Unknown;
-    Shape shapeA;
-    Shape shapeB;
+    Shape shapeInput;
+    Shape shapeMin;
+    Shape shapeMax;
     DataType dataType = DataType(INFINI_DTYPE_F32);
-    std::vector<T> inputAData;
-    std::vector<T> inputBData;
+    std::vector<T> inputData;
+    std::vector<T> minData;
+    std::vector<T> maxData;
     std::vector<T> outputData;
     bool completed = false;
     std::string deviceName;
@@ -30,30 +31,37 @@ template <typename T> void deviceThreadFunc(ThreadTestParams<T> &params) {
 
     // Create Graph
     Graph g = make_ref<GraphObj>(runtime);
-    auto A = g->addTensor(params.shapeA, params.dataType);
-    auto B = g->addTensor(params.shapeB, params.dataType);
-    auto op = g->addOp<ElementWiseObj>(params.opType, A, B, nullptr);
+    auto input = g->addTensor(params.shapeInput, params.dataType);
+    auto min = g->addTensor(params.shapeMin, params.dataType);
+    auto max = g->addTensor(params.shapeMax, params.dataType);
+    auto op = g->addOp<ClipObj>(input, nullptr, min, max);
 
     // Set input data (CPU pointers) BEFORE dataMalloc to skip GPU allocation
-    A->setData(params.inputAData.data());
-    B->setData(params.inputBData.data());
+    input->setData(params.inputData.data());
+    min->setData(params.minData.data());
+    max->setData(params.maxData.data());
     // Allocate memory (output only, inputs are externally managed)
     runtime->dataMalloc(g);
 
     // Track device pointers for cleanup
-    void *deviceA = nullptr;
-    void *deviceB = nullptr;
+    void *deviceInput = nullptr;
+    void *deviceMin = nullptr;
+    void *deviceMax = nullptr;
 
     // For GPU, manually copy input data from CPU to GPU device memory
     if (params.device != INFINI_DEVICE_CPU) {
-        deviceA = runtime->allocDevice(A->getTotalBytes());
-        deviceB = runtime->allocDevice(B->getTotalBytes());
-        runtime->memcpy(deviceA, params.inputAData.data(), A->getTotalBytes(),
+        deviceInput = runtime->allocDevice(input->getTotalBytes());
+        deviceMin = runtime->allocDevice(min->getTotalBytes());
+        deviceMax = runtime->allocDevice(max->getTotalBytes());
+        runtime->memcpy(deviceInput, params.inputData.data(),
+                        input->getTotalBytes(), INFINIRT_MEMCPY_H2D);
+        runtime->memcpy(deviceMin, params.minData.data(), min->getTotalBytes(),
                         INFINIRT_MEMCPY_H2D);
-        runtime->memcpy(deviceB, params.inputBData.data(), B->getTotalBytes(),
+        runtime->memcpy(deviceMax, params.maxData.data(), max->getTotalBytes(),
                         INFINIRT_MEMCPY_H2D);
-        A->setData(deviceA);
-        B->setData(deviceB);
+        input->setData(deviceInput);
+        min->setData(deviceMin);
+        max->setData(deviceMax);
     }
 
     // Run computation
@@ -90,6 +98,11 @@ template <typename T> void deviceThreadFunc(ThreadTestParams<T> &params) {
         void *hostPtr = runtime->allocHost(output->getTotalBytes());
         runtime->memcpy(hostPtr, devicePtr, output->getTotalBytes(),
                         INFINIRT_MEMCPY_D2H);
+        if (params.deviceName == "NVIDIA") {
+            float *debugPtr = static_cast<float *>(hostPtr);
+            std::cout << "DEBUG Clip: First value after memcpy: " << debugPtr[0]
+                      << std::endl;
+        }
         copyAndConvertData(params.outputData, hostPtr, numElements,
                            params.dataType);
         runtime->deallocHost(hostPtr);
@@ -97,8 +110,9 @@ template <typename T> void deviceThreadFunc(ThreadTestParams<T> &params) {
 
     // Clean up device memory
     if (params.device != INFINI_DEVICE_CPU) {
-        runtime->deallocDevice(deviceA);
-        runtime->deallocDevice(deviceB);
+        runtime->deallocDevice(deviceInput);
+        runtime->deallocDevice(deviceMin);
+        runtime->deallocDevice(deviceMax);
         // Also clean up output memory allocated by dataMalloc
         runtime->deallocDevice(devicePtr);
         // Clean up workspace to free GPU memory
@@ -119,24 +133,28 @@ using DataGeneratorFunc = std::function<std::vector<T>(size_t, T, T)>;
 // Run multi-thread test
 template <typename T>
 void runMultiThreadTest(
-    OpType opType, const Shape &shapeA, const Shape &shapeB,
+    const Shape &shapeInput, const Shape &shapeMin, const Shape &shapeMax,
     const DataType &dataType,
     DataGeneratorFunc<T> dataGenerator = generateRandomData<T>,
     bool print = false) {
 
     // Prepare input data - use utility function to simplify
-    size_t elementA = 1, elementB = 1;
-    for (auto dim : shapeA)
-        elementA *= dim;
-    for (auto dim : shapeB)
-        elementB *= dim;
+    size_t elementInput = 1, elementMin = 1, elementMax = 1;
+    for (auto dim : shapeInput)
+        elementInput *= dim;
+    for (auto dim : shapeMin)
+        elementMin *= dim;
+    for (auto dim : shapeMax)
+        elementMax *= dim;
 
     // Use the passed data generator function (default uses
     // random data)
-    auto inputAData =
-        dataGenerator(elementA, static_cast<T>(-10), static_cast<T>(10));
-    auto inputBData =
-        dataGenerator(elementB, static_cast<T>(-10), static_cast<T>(10));
+    auto inputData =
+        dataGenerator(elementInput, static_cast<T>(-10), static_cast<T>(10));
+    auto minData =
+        dataGenerator(elementMin, static_cast<T>(-5), static_cast<T>(0));
+    auto maxData =
+        dataGenerator(elementMax, static_cast<T>(1), static_cast<T>(5));
 
     // Create thread parameters
     ThreadTestParams<T> cpuParams, gpuParams;
@@ -144,32 +162,34 @@ void runMultiThreadTest(
     // CPU thread parameters
     cpuParams.device = INFINI_DEVICE_CPU;
     cpuParams.deviceId = 0;
-    cpuParams.opType = opType;
-    cpuParams.shapeA = shapeA;
-    cpuParams.shapeB = shapeB;
+    cpuParams.shapeInput = shapeInput;
+    cpuParams.shapeMin = shapeMin;
+    cpuParams.shapeMax = shapeMax;
     cpuParams.dataType = dataType;
-    cpuParams.inputAData = inputAData;
-    cpuParams.inputBData = inputBData;
+    cpuParams.inputData = inputData;
+    cpuParams.minData = minData;
+    cpuParams.maxData = maxData;
     cpuParams.deviceName = "CPU";
 
     // GPU thread parameters
     gpuParams.device = INFINI_DEVICE_NVIDIA;
     gpuParams.deviceId = 5;
-    gpuParams.opType = opType;
-    gpuParams.shapeA = shapeA;
-    gpuParams.shapeB = shapeB;
+    gpuParams.shapeInput = shapeInput;
+    gpuParams.shapeMin = shapeMin;
+    gpuParams.shapeMax = shapeMax;
     gpuParams.dataType = dataType;
-    gpuParams.inputAData = inputAData;
-    gpuParams.inputBData = inputBData;
+    gpuParams.inputData = inputData;
+    gpuParams.minData = minData;
+    gpuParams.maxData = maxData;
     gpuParams.deviceName = "NVIDIA";
 
     if (print) {
         std::cout << "========================================" << std::endl;
-        std::cout << "Running Multi-Thread ElementWise Test" << std::endl;
-        std::cout << "OpType: " << opType.toString() << std::endl;
+        std::cout << "Running Multi-Thread Clip Test" << std::endl;
         std::cout << "DataType: " << dataType.toString() << std::endl;
-        std::cout << "Shape A: " << vecToString(shapeA) << std::endl;
-        std::cout << "Shape B: " << vecToString(shapeB) << std::endl;
+        std::cout << "Shape Input: " << vecToString(shapeInput) << std::endl;
+        std::cout << "Shape Min: " << vecToString(shapeMin) << std::endl;
+        std::cout << "Shape Max: " << vecToString(shapeMax) << std::endl;
         std::cout << "Thread 1: CPU (" << dataType.toString() << ")"
                   << std::endl;
         std::cout << "Thread 2: NVIDIA (" << dataType.toString() << ")"
@@ -231,9 +251,9 @@ void runMultiThreadTest(
         std::cout << "  Max error: " << maxError << std::endl;
 
         if (numErrors == 0) {
-            std::cout << "  ✓ Test PASSED" << std::endl;
+            std::cout << "  Test PASSED" << std::endl;
         } else {
-            std::cout << "  ✗ Test FAILED" << std::endl;
+            std::cout << "  Test FAILED" << std::endl;
         }
         std::cout << "========================================" << std::endl;
     }
@@ -243,26 +263,28 @@ void runMultiThreadTest(
                             << maxError << ")";
 }
 
-// Basic Add operation test - F32
-TEST(ElementWise, Add_MultiThread_F32) {
-    Shape shapeA = {3, 1};
-    Shape shapeB = {2, 3, 4};
+// Basic Clip operation test - F32
+TEST(Clip, Clip_MultiThread_F32) {
+    Shape shapeInput = {2, 3, 4};
+    Shape shapeMin = {2, 3, 4};
+    Shape shapeMax = {2, 3, 4};
 
 #ifdef USE_CUDA
-    runMultiThreadTest<float>(OpType::Add, shapeA, shapeB,
+    runMultiThreadTest<float>(shapeInput, shapeMin, shapeMax,
                               DataType(INFINI_DTYPE_F32));
 #else
     std::cout << "CUDA not enabled, skipping multi-thread test" << std::endl;
 #endif
 }
 
-// Basic Add operation test - F16
-TEST(ElementWise, Add_MultiThread_F16) {
-    Shape shapeA = {3, 1};
-    Shape shapeB = {2, 3, 4};
+// Basic Clip operation test - F16
+TEST(Clip, Clip_MultiThread_F16) {
+    Shape shapeInput = {2, 3, 4};
+    Shape shapeMin = {2, 3, 4};
+    Shape shapeMax = {2, 3, 4};
 
 #ifdef USE_CUDA
-    runMultiThreadTest<uint16_t>(OpType::Add, shapeA, shapeB,
+    runMultiThreadTest<uint16_t>(shapeInput, shapeMin, shapeMax,
                                  DataType(INFINI_DTYPE_F16),
                                  generateSequentialData<uint16_t>, true);
 #else
@@ -270,144 +292,129 @@ TEST(ElementWise, Add_MultiThread_F16) {
 #endif
 }
 
-// Basic Mul operation test - F32
-TEST(ElementWise, Mul_MultiThread_F32) {
-    Shape shapeA = {3, 4};
-    Shape shapeB = {3, 4};
+// Clip operation test with different shapes - F32
+TEST(Clip, Clip_MultiThread_F32_DifferentShapes) {
+    Shape shapeInput = {3, 4};
+    Shape shapeMin = {3, 4};
+    Shape shapeMax = {3, 4};
 
 #ifdef USE_CUDA
-    runMultiThreadTest<float>(OpType::Mul, shapeA, shapeB,
+    runMultiThreadTest<float>(shapeInput, shapeMin, shapeMax,
                               DataType(INFINI_DTYPE_F32));
-#endif
-}
-
-// Basic Mul operation test - F16
-TEST(ElementWise, Mul_MultiThread_F16) {
-    Shape shapeA = {3, 4};
-    Shape shapeB = {3, 4};
-
-#ifdef USE_CUDA
-    runMultiThreadTest<uint16_t>(OpType::Mul, shapeA, shapeB,
-                                 DataType(INFINI_DTYPE_F16),
-                                 generateSequentialData<uint16_t>, false);
-#endif
-}
-
-// Basic Sub operation test - F32
-TEST(ElementWise, Sub_MultiThread_F32) {
-    Shape shapeA = {1, 5, 6};
-    Shape shapeB = {1, 5, 6};
-
-#ifdef USE_CUDA
-    runMultiThreadTest<float>(OpType::Sub, shapeA, shapeB,
-                              DataType(INFINI_DTYPE_F32));
-#endif
-}
-
-// Basic Sub operation test - F16
-TEST(ElementWise, Sub_MultiThread_F16) {
-    Shape shapeA = {1, 5, 6};
-    Shape shapeB = {1, 5, 6};
-
-#ifdef USE_CUDA
-    runMultiThreadTest<uint16_t>(OpType::Sub, shapeA, shapeB,
-                                 DataType(INFINI_DTYPE_F16),
-                                 generateSequentialData<uint16_t>, false);
 #endif
 }
 
 // Single device test - CPU
-TEST(ElementWise, Add_SingleDevice_CPU) {
+TEST(Clip, Clip_SingleDevice_CPU) {
     RuntimeObj::init();
     Runtime &runtime = RuntimeObj::getInstance();
     runtime->initThreadContext(INFINI_DEVICE_CPU, 0);
 
-    Shape shapeA = {3, 1};
-    Shape shapeB = {2, 3, 4};
+    Shape shapeInput = {2, 3, 4};
+    Shape shapeMin = {2, 3, 4};
+    Shape shapeMax = {2, 3, 4};
 
     Graph g = make_ref<GraphObj>(runtime);
-    auto A = g->addTensor(shapeA, DataType(INFINI_DTYPE_F32));
-    auto B = g->addTensor(shapeB, DataType(INFINI_DTYPE_F32));
-    auto op = g->addOp<ElementWiseObj>(OpType::Add, A, B, nullptr);
+    auto input = g->addTensor(shapeInput, DataType(INFINI_DTYPE_F32));
+    auto min = g->addTensor(shapeMin, DataType(INFINI_DTYPE_F32));
+    auto max = g->addTensor(shapeMax, DataType(INFINI_DTYPE_F32));
+    auto op = g->addOp<ClipObj>(input, nullptr, min, max);
 
     runtime->dataMalloc(g);
 
     // Set input data
-    std::vector<float> inputAData(A->getElement());
-    std::vector<float> inputBData(B->getElement());
+    std::vector<float> inputData(input->getElement());
+    std::vector<float> minData(min->getElement());
+    std::vector<float> maxData(max->getElement());
 
-    for (size_t i = 0; i < inputAData.size(); ++i) {
-        inputAData[i] = static_cast<float>(i + 1);
+    for (size_t i = 0; i < inputData.size(); ++i) {
+        inputData[i] = static_cast<float>((i % 20) - 10); // -10 to 9
     }
-    for (size_t i = 0; i < inputBData.size(); ++i) {
-        inputBData[i] = static_cast<float>(inputBData.size() - i);
+    for (size_t i = 0; i < minData.size(); ++i) {
+        minData[i] = -2.0f;
+    }
+    for (size_t i = 0; i < maxData.size(); ++i) {
+        maxData[i] = 2.0f;
     }
 
-    A->setData(inputAData.data());
-    B->setData(inputBData.data());
+    input->setData(inputData.data());
+    min->setData(minData.data());
+    max->setData(maxData.data());
 
     // Execute computation
     runtime->run(g);
 
     // Get output and print
     auto output = op->getOutput(0);
-    std::cout << "CPU Output Data: " << std::endl;
+    std::cout << "CPU Clip Output Data: " << std::endl;
     output->printData(runtime);
 }
 
 #ifdef USE_CUDA
 // Single device test - NVIDIA F32
-TEST(ElementWise, Add_SingleDevice_NVIDIA_F32) {
+TEST(Clip, Clip_SingleDevice_NVIDIA_F32) {
     RuntimeObj::init();
     Runtime &runtime = RuntimeObj::getInstance();
     runtime->initThreadContext(INFINI_DEVICE_NVIDIA, 5);
 
-    Shape shapeA = {3, 1};
-    Shape shapeB = {2, 3, 4};
+    Shape shapeInput = {2, 3, 4};
+    Shape shapeMin = {2, 3, 4};
+    Shape shapeMax = {2, 3, 4};
 
     Graph g = make_ref<GraphObj>(runtime);
-    auto A = g->addTensor(shapeA, DataType(INFINI_DTYPE_F32));
-    auto B = g->addTensor(shapeB, DataType(INFINI_DTYPE_F32));
-    auto op = g->addOp<ElementWiseObj>(OpType::Add, A, B, nullptr);
+    auto input = g->addTensor(shapeInput, DataType(INFINI_DTYPE_F32));
+    auto min = g->addTensor(shapeMin, DataType(INFINI_DTYPE_F32));
+    auto max = g->addTensor(shapeMax, DataType(INFINI_DTYPE_F32));
+    auto op = g->addOp<ClipObj>(input, nullptr, min, max);
 
     // Set input data
-    std::vector<float> inputAData(A->getElement());
-    std::vector<float> inputBData(B->getElement());
+    std::vector<float> inputData(input->getElement());
+    std::vector<float> minData(min->getElement());
+    std::vector<float> maxData(max->getElement());
 
-    for (size_t i = 0; i < inputAData.size(); ++i) {
-        inputAData[i] = static_cast<float>(i + 1);
+    for (size_t i = 0; i < inputData.size(); ++i) {
+        inputData[i] = static_cast<float>((i % 20) - 10); // -10 to 9
     }
-    for (size_t i = 0; i < inputBData.size(); ++i) {
-        inputBData[i] = static_cast<float>(inputBData.size() - i);
+    for (size_t i = 0; i < minData.size(); ++i) {
+        minData[i] = -2.0f;
+    }
+    for (size_t i = 0; i < maxData.size(); ++i) {
+        maxData[i] = 2.0f;
     }
 
     // Set input data (CPU pointers) BEFORE dataMalloc to skip GPU allocation
-    A->setData(inputAData.data());
-    B->setData(inputBData.data());
+    input->setData(inputData.data());
+    min->setData(minData.data());
+    max->setData(maxData.data());
     // Allocate memory (output only, inputs are externally managed)
     runtime->dataMalloc(g);
 
     // Manually copy input data from CPU to GPU device memory
-    void *deviceA = runtime->allocDevice(A->getTotalBytes());
-    void *deviceB = runtime->allocDevice(B->getTotalBytes());
-    runtime->memcpy(deviceA, inputAData.data(), A->getTotalBytes(),
+    void *deviceInput = runtime->allocDevice(input->getTotalBytes());
+    void *deviceMin = runtime->allocDevice(min->getTotalBytes());
+    void *deviceMax = runtime->allocDevice(max->getTotalBytes());
+    runtime->memcpy(deviceInput, inputData.data(), input->getTotalBytes(),
                     INFINIRT_MEMCPY_H2D);
-    runtime->memcpy(deviceB, inputBData.data(), B->getTotalBytes(),
+    runtime->memcpy(deviceMin, minData.data(), min->getTotalBytes(),
                     INFINIRT_MEMCPY_H2D);
-    A->setData(deviceA);
-    B->setData(deviceB);
+    runtime->memcpy(deviceMax, maxData.data(), max->getTotalBytes(),
+                    INFINIRT_MEMCPY_H2D);
+    input->setData(deviceInput);
+    min->setData(deviceMin);
+    max->setData(deviceMax);
 
     // Execute computation
     runtime->run(g);
 
     // Get output and print
     auto output = op->getOutput(0);
-    std::cout << "NVIDIA F32 Output Data: " << std::endl;
+    std::cout << "NVIDIA F32 Clip Output Data: " << std::endl;
     output->printData(runtime);
 
     // Clean up device memory
-    runtime->deallocDevice(deviceA);
-    runtime->deallocDevice(deviceB);
+    runtime->deallocDevice(deviceInput);
+    runtime->deallocDevice(deviceMin);
+    runtime->deallocDevice(deviceMax);
     // Clean up output memory allocated by dataMalloc
     auto outputData = output->getData();
     if (outputData) {
@@ -416,57 +423,69 @@ TEST(ElementWise, Add_SingleDevice_NVIDIA_F32) {
 }
 
 // Single device test - NVIDIA F16
-TEST(ElementWise, Add_SingleDevice_NVIDIA_F16) {
+TEST(Clip, Clip_SingleDevice_NVIDIA_F16) {
     RuntimeObj::init();
     Runtime &runtime = RuntimeObj::getInstance();
     runtime->initThreadContext(INFINI_DEVICE_NVIDIA, 5);
 
-    Shape shapeA = {3, 1};
-    Shape shapeB = {2, 3, 4};
+    Shape shapeInput = {2, 3, 4};
+    Shape shapeMin = {2, 3, 4};
+    Shape shapeMax = {2, 3, 4};
 
     Graph g = make_ref<GraphObj>(runtime);
-    auto A = g->addTensor(shapeA, DataType(INFINI_DTYPE_F16));
-    auto B = g->addTensor(shapeB, DataType(INFINI_DTYPE_F16));
-    auto op = g->addOp<ElementWiseObj>(OpType::Add, A, B, nullptr);
+    auto input = g->addTensor(shapeInput, DataType(INFINI_DTYPE_F16));
+    auto min = g->addTensor(shapeMin, DataType(INFINI_DTYPE_F16));
+    auto max = g->addTensor(shapeMax, DataType(INFINI_DTYPE_F16));
+    auto op = g->addOp<ClipObj>(input, nullptr, min, max);
 
     // Set input data
-    std::vector<uint16_t> inputAData(A->getElement());
-    std::vector<uint16_t> inputBData(B->getElement());
+    std::vector<uint16_t> inputData(input->getElement());
+    std::vector<uint16_t> minData(min->getElement());
+    std::vector<uint16_t> maxData(max->getElement());
 
-    for (size_t i = 0; i < inputAData.size(); ++i) {
-        inputAData[i] = static_cast<uint16_t>(i + 1);
+    for (size_t i = 0; i < inputData.size(); ++i) {
+        inputData[i] = fp32_to_fp16(static_cast<float>((i % 20) - 10));
     }
-    for (size_t i = 0; i < inputBData.size(); ++i) {
-        inputBData[i] = static_cast<uint16_t>(inputBData.size() - i);
+    for (size_t i = 0; i < minData.size(); ++i) {
+        minData[i] = fp32_to_fp16(-2.0f);
+    }
+    for (size_t i = 0; i < maxData.size(); ++i) {
+        maxData[i] = fp32_to_fp16(2.0f);
     }
 
     // Set input data (CPU pointers) BEFORE dataMalloc to skip GPU allocation
-    A->setData(inputAData.data());
-    B->setData(inputBData.data());
+    input->setData(inputData.data());
+    min->setData(minData.data());
+    max->setData(maxData.data());
     // Allocate memory (output only, inputs are externally managed)
     runtime->dataMalloc(g);
 
     // Manually copy input data from CPU to GPU device memory
-    void *deviceA = runtime->allocDevice(A->getTotalBytes());
-    void *deviceB = runtime->allocDevice(B->getTotalBytes());
-    runtime->memcpy(deviceA, inputAData.data(), A->getTotalBytes(),
+    void *deviceInput = runtime->allocDevice(input->getTotalBytes());
+    void *deviceMin = runtime->allocDevice(min->getTotalBytes());
+    void *deviceMax = runtime->allocDevice(max->getTotalBytes());
+    runtime->memcpy(deviceInput, inputData.data(), input->getTotalBytes(),
                     INFINIRT_MEMCPY_H2D);
-    runtime->memcpy(deviceB, inputBData.data(), B->getTotalBytes(),
+    runtime->memcpy(deviceMin, minData.data(), min->getTotalBytes(),
                     INFINIRT_MEMCPY_H2D);
-    A->setData(deviceA);
-    B->setData(deviceB);
+    runtime->memcpy(deviceMax, maxData.data(), max->getTotalBytes(),
+                    INFINIRT_MEMCPY_H2D);
+    input->setData(deviceInput);
+    min->setData(deviceMin);
+    max->setData(deviceMax);
 
     // Execute computation
     runtime->run(g);
 
     // Get output and print
     auto output = op->getOutput(0);
-    std::cout << "NVIDIA F16 Output Data: " << std::endl;
+    std::cout << "NVIDIA F16 Clip Output Data: " << std::endl;
     output->printData(runtime);
 
     // Clean up device memory
-    runtime->deallocDevice(deviceA);
-    runtime->deallocDevice(deviceB);
+    runtime->deallocDevice(deviceInput);
+    runtime->deallocDevice(deviceMin);
+    runtime->deallocDevice(deviceMax);
     // Clean up output memory allocated by dataMalloc
     auto outputData = output->getData();
     if (outputData) {

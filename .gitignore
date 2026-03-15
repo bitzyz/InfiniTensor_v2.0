@@ -45,3 +45,7 @@ InfiniCore/
 *.onnx
 *.pb
 *.npy
+
+# clion
+cmake-*/
+.idea/

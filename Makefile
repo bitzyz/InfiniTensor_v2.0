@@ -1,4 +1,4 @@
-﻿.PHONY : build clean check-infini format install-python test test-front
+.PHONY : build clean check-infini format install-python test test-front
 
 TYPE ?= Release
 TEST ?= ON
@@ -91,7 +91,7 @@ build: check-infini
 
 install-python: build
 	cp build/$(TYPE)/pyinfinitensor*.so python/src/infinitensor
-	pip install -e python/
+	pip install -e python/ --break-system-packages
 
 clean:
 	rm -rf build && rm -f python/src/infinitensor/*.so

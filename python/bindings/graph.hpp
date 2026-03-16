@@ -27,6 +27,24 @@ void bind_graph_builder(py::module &m) {
              py::arg("Y") = py::none())
         .def("mul", &GraphBuilderObj::mul, py::arg("A"), py::arg("B"),
              py::arg("Y") = py::none())
+        .def("clip", &GraphBuilderObj::clip, py::arg("input"), py::arg("min"),
+             py::arg("max"), py::arg("output") = py::none())
+        .def("conv", &GraphBuilderObj::conv, py::arg("input"), py::arg("weight"),
+             py::arg("bias") = py::none(), py::arg("pads"), py::arg("strides"),
+             py::arg("dilations"), py::arg("output") = py::none())
+        .def("layer_norm", &GraphBuilderObj::layer_norm, py::arg("input"), py::arg("weight"),
+             py::arg("bias"), py::arg("eps") = 1e-5, py::arg("output") = py::none())
+        .def("relu", &GraphBuilderObj::relu, py::arg("input"), py::arg("output") = py::none())
+        .def("sigmoid", &GraphBuilderObj::sigmoid, py::arg("input"), py::arg("output") = py::none())
+        .def("tanh", &GraphBuilderObj::tanh, py::arg("input"), py::arg("output") = py::none())
+        .def("gelu", &GraphBuilderObj::gelu, py::arg("input"), py::arg("output") = py::none())
+        .def("silu", &GraphBuilderObj::silu, py::arg("input"), py::arg("output") = py::none())
+        .def("softplus", &GraphBuilderObj::softplus, py::arg("input"), py::arg("output") = py::none())
+        .def("softmax", &GraphBuilderObj::softmax, py::arg("input"), py::arg("axis"), py::arg("output") = py::none())
+        .def("log_softmax", &GraphBuilderObj::log_softmax, py::arg("input"), py::arg("axis"), py::arg("output") = py::none())
+        .def("rms_norm", &GraphBuilderObj::rms_norm, py::arg("input"), py::arg("weight"), py::arg("eps") = 1e-6, py::arg("output") = py::none())
+        .def("lp_norm", &GraphBuilderObj::lp_norm, py::arg("input"), py::arg("p"), py::arg("dims"), py::arg("keepdim") = false, py::arg("output") = py::none())
+        .def("transpose", &GraphBuilderObj::transpose, py::arg("input"), py::arg("perm"), py::arg("output") = py::none())
         .def("to_string", &GraphBuilderObj::printGraph)
         .def_property_readonly("graph", &GraphBuilderObj::getGraph);
 }

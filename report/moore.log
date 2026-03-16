@@ -1,0 +1,171 @@
+mccxadmin@mccx:~/simon_chou/InfiniTensor_v2.0$ make install-python PLATFORM=MOORE
+[INFO] 检测到 INFINI_ROOT=/home/mccxadmin/.infini
+mkdir -p build/Release
+cd build/Release && cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_TEST=ON -DUSE_CUDA=OFF -DUSE_ASCEND=OFF -DUSE_CAMBRICON=OFF -DUSE_METAX=OFF -DUSE_MOORE=ON -DUSE_ILUVATAR=OFF -DUSE_HYGON=OFF -DUSE_KUNLUN=OFF ../.. && make -j8
+Configuring for Release build.
+-- pybind11 v3.0.2 
+Using compatibility mode for Python, set PYBIND11_FINDPYTHON to NEW/OLD to silence this message
+-- Disabling test_elementwise_kernel (CUDA Error 304 - environment issue)
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release
+make[1]: Entering directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[2]: Entering directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[3]: Entering directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[3]: Entering directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+Consolidate compiler generated dependencies of target gtest
+make[3]: Leaving directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+Consolidate compiler generated dependencies of target InfiniTensor
+[  3%] Built target gtest
+make[3]: Entering directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+Consolidate compiler generated dependencies of target gtest_main
+make[3]: Leaving directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[3]: Leaving directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+[  6%] Built target gtest_main
+[ 46%] Built target InfiniTensor
+make[3]: Entering directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[3]: Entering directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[3]: Entering directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[3]: Entering directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[3]: Entering directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[3]: Entering directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[3]: Entering directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[3]: Entering directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+Consolidate compiler generated dependencies of target test_elementwise_kernel
+Consolidate compiler generated dependencies of target pyinfinitensor
+Consolidate compiler generated dependencies of target test_gemm_kernel
+Consolidate compiler generated dependencies of target test_expr
+Consolidate compiler generated dependencies of target test_graph
+Consolidate compiler generated dependencies of target test_shape_expr
+Consolidate compiler generated dependencies of target test_stride_expr
+Consolidate compiler generated dependencies of target test_tensor_basic
+make[3]: Leaving directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[3]: Leaving directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[3]: Leaving directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[3]: Leaving directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[3]: Leaving directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[3]: Leaving directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[3]: Leaving directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[3]: Leaving directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[3]: Entering directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[3]: Entering directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[3]: Entering directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[3]: Entering directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[3]: Entering directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[3]: Entering directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[3]: Entering directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+[ 47%] Linking CXX executable test_expr
+[ 50%] Linking CXX executable test_elementwise_kernel
+[ 50%] Linking CXX executable test_shape_expr
+[ 52%] Linking CXX executable test_gemm_kernel
+[ 53%] Linking CXX executable test_graph
+[ 55%] Linking CXX executable test_stride_expr
+[ 60%] Built target pyinfinitensor
+[ 60%] Linking CXX executable test_tensor_basic
+make[3]: Entering directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+Consolidate compiler generated dependencies of target test_clip_op
+make[3]: Leaving directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[3]: Entering directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+[ 61%] Linking CXX executable test_clip_op
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopSilu'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopCreateSiluDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopGetSiluWorkspaceSize'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopSilu'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopCreateSiluDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopGetLPNormWorkspaceSize'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopLPNorm'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopGetSiluWorkspaceSize'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopGetLPNormWorkspaceSize'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopLPNorm'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopSilu'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopCreateSiluDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopSilu'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopCreateSiluDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopGetSiluWorkspaceSize'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopSilu'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopCreateSiluDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopSilu'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopCreateSiluDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopGetSiluWorkspaceSize'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopGetLPNormWorkspaceSize'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopGetSiluWorkspaceSize'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopLPNorm'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopGetSiluWorkspaceSize'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopGetLPNormWorkspaceSize'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopLPNorm'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopGetLPNormWorkspaceSize'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopGetLPNormWorkspaceSize'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopLPNorm'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopLPNorm'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopDestroySiluDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopDestroySiluDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopDestroySiluDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopDestroySiluDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopDestroySiluDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopDestroySiluDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopSilu'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopCreateSiluDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopGetSiluWorkspaceSize'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopGetLPNormWorkspaceSize'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopLPNorm'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopDestroyLPNormDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopCreateLPNormDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopDestroyLPNormDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopCreateLPNormDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopDestroyLPNormDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopDestroyLPNormDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopCreateLPNormDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopDestroyLPNormDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopDestroyLPNormDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopCreateLPNormDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopCreateLPNormDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopCreateLPNormDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopDestroySiluDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopDestroyLPNormDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopCreateLPNormDescriptor'
+collect2: error: ld returned 1 exit status
+make[3]: *** [CMakeFiles/test_shape_expr.dir/build.make:102: test_shape_expr] Error 1
+make[3]: Leaving directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[2]: *** [CMakeFiles/Makefile2:335: CMakeFiles/test_shape_expr.dir/all] Error 2
+make[2]: *** Waiting for unfinished jobs....
+collect2: error: ld returned 1 exit status
+make[3]: *** [CMakeFiles/test_gemm_kernel.dir/build.make:102: test_gemm_kernel] Error 1
+make[3]: Leaving directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[2]: *** [CMakeFiles/Makefile2:251: CMakeFiles/test_gemm_kernel.dir/all] Error 2
+collect2: error: ld returned 1 exit status
+collect2: error: ld returned 1 exit status
+collect2: error: ld returned 1 exit status
+make[3]: *** [CMakeFiles/test_graph.dir/build.make:102: test_graph] Error 1
+make[3]: Leaving directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[2]: *** [CMakeFiles/Makefile2:307: CMakeFiles/test_graph.dir/all] Error 2
+collect2: error: ld returned 1 exit status
+make[3]: *** [CMakeFiles/test_tensor_basic.dir/build.make:102: test_tensor_basic] Error 1
+make[3]: Leaving directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[2]: *** [CMakeFiles/Makefile2:391: CMakeFiles/test_tensor_basic.dir/all] Error 2
+make[3]: *** [CMakeFiles/test_expr.dir/build.make:102: test_expr] Error 1
+make[3]: Leaving directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[2]: *** [CMakeFiles/Makefile2:279: CMakeFiles/test_expr.dir/all] Error 2
+make[3]: *** [CMakeFiles/test_elementwise_kernel.dir/build.make:102: test_elementwise_kernel] Error 1
+make[3]: Leaving directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[2]: *** [CMakeFiles/Makefile2:223: CMakeFiles/test_elementwise_kernel.dir/all] Error 2
+collect2: error: ld returned 1 exit status
+make[3]: *** [CMakeFiles/test_clip_op.dir/build.make:102: test_clip_op] Error 1
+make[3]: Leaving directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[2]: *** [CMakeFiles/Makefile2:419: CMakeFiles/test_clip_op.dir/all] Error 2
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopSilu'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopCreateSiluDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopGetSiluWorkspaceSize'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopGetLPNormWorkspaceSize'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopLPNorm'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopDestroySiluDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopDestroyLPNormDescriptor'
+/usr/bin/ld: libInfiniTensor.so: undefined reference to `infiniopCreateLPNormDescriptor'
+collect2: error: ld returned 1 exit status
+make[3]: *** [CMakeFiles/test_stride_expr.dir/build.make:102: test_stride_expr] Error 1
+make[3]: Leaving directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[2]: *** [CMakeFiles/Makefile2:363: CMakeFiles/test_stride_expr.dir/all] Error 2
+make[2]: Leaving directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make[1]: *** [Makefile:101: all] Error 2
+make[1]: Leaving directory '/home/mccxadmin/simon_chou/InfiniTensor_v2.0/build/Release'
+make: *** [Makefile:90: build] Error 2
+mccxadmin@mccx:~/simon_chou/InfiniTensor_v2.0$ 

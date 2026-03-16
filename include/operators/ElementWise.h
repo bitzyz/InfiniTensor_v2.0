@@ -2,6 +2,7 @@
 #include "core/graph.h"
 #include "core/operator.h"
 #include <infiniop/ops/add.h>
+#include <infiniop/ops/clip.h>
 #include <infiniop/ops/mul.h>
 #include <infiniop/ops/sub.h>
 
@@ -22,6 +23,18 @@ class ElementWiseObj : public OperatorObj {
      */
     ElementWiseObj(GraphObj *graph, OpType type, Tensor input0, Tensor input1,
                    Tensor output);
+
+    /**
+     * @brief Construct a new ElementWise object for Clip
+     *
+     * @param graph The computation graph that this operator belongs to.
+     * @param input The input tensor.
+     * @param min The min tensor.
+     * @param max The max tensor.
+     * @param output The output tensor.
+     */
+    ElementWiseObj(GraphObj *graph, OpType type, Tensor input, Tensor min,
+                   Tensor max, Tensor output);
     string toString() const override;
     ~ElementWiseObj() override;
 

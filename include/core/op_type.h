@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #ifndef OP_TYPE_H
 #define OP_TYPE_H
 
@@ -13,12 +13,23 @@ struct OpType {
         Cast,
         Clip,
         Concat,
+        Conv,
         Div,
+        Gelu,
         Gemm,
+        LayerNorm,
+        LogSoftmax,
+        LpNorm,
         Mul,
         MatMul,
         Relu,
+        RMSNorm,
+        Sigmoid,
+        Silu,
+        Softmax,
+        Softplus,
         Sub,
+        Tanh,
         Transpose,
 
     } type;
@@ -38,15 +49,27 @@ struct OpType {
         switch (type) {
             CASE(Unknown);
             CASE(Add);
-            CASE(Sub);
-            CASE(Mul);
-            CASE(Div);
             CASE(Cast);
             CASE(Clip);
-            CASE(Relu);
-            CASE(Transpose);
             CASE(Concat);
+            CASE(Conv);
+            CASE(Div);
+            CASE(Gelu);
+            CASE(Gemm);
+            CASE(LayerNorm);
+            CASE(LogSoftmax);
+            CASE(LpNorm);
+            CASE(Mul);
             CASE(MatMul);
+            CASE(Relu);
+            CASE(RMSNorm);
+            CASE(Sigmoid);
+            CASE(Silu);
+            CASE(Softmax);
+            CASE(Softplus);
+            CASE(Sub);
+            CASE(Tanh);
+            CASE(Transpose);
 
         default:
             return "Unknown";

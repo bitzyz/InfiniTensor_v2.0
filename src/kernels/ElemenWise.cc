@@ -40,6 +40,17 @@ class ElementWiseOp : public Kernel {
                 infiniopSub((infiniopSubDescriptor_t)op->getInfiniOpDesc(),
                             workspace, workspace_size, yData, aData, bData,
                             runtime->getCurrentThreadContext()->stream));
+        } else if (type == OpType::Clip) {
+            void *const minData = (op->getInput(1)->getRawDataPtr<void *>());
+            void *const maxData = (op->getInput(2)->getRawDataPtr<void *>());
+            CHECK_INFINI_ERROR(infiniopGetClipWorkspaceSize(
+                (infiniopClipDescriptor_t)op->getInfiniOpDesc(),
+                &workspace_size));
+            void *workspace = runtime->getWorkspace(workspace_size);
+            CHECK_INFINI_ERROR(
+                infiniopClip((infiniopClipDescriptor_t)op->getInfiniOpDesc(),
+                             workspace, workspace_size, yData, aData, minData,
+                             maxData, runtime->getCurrentThreadContext()->stream));
         } else {
             IT_TODO_HALT_MSG("ElemenWise operator not supported");
         }
@@ -49,4 +60,5 @@ class ElementWiseOp : public Kernel {
 REGISTER_KERNEL_ALL_DEVICES(OpType::Add, ElementWiseOp);
 REGISTER_KERNEL_ALL_DEVICES(OpType::Mul, ElementWiseOp);
 REGISTER_KERNEL_ALL_DEVICES(OpType::Sub, ElementWiseOp);
+REGISTER_KERNEL_ALL_DEVICES(OpType::Clip, ElementWiseOp);
 } // namespace infini

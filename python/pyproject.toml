@@ -15,5 +15,33 @@ classifiers = [
     "Operating System :: OS Independent",]
 dependencies = []
 
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "numpy",
+    "torch",
+]
+frontends = [
+    "onnx",
+    "onnxscript",
+    "onnx2torch",
+    "tensorflow-cpu",
+    "tf2onnx",
+    "paddlepaddle",
+    "paddle2onnx",
+]
+all = [
+    "pytest",
+    "numpy",
+    "torch",
+    "onnx",
+    "onnxscript",
+    "onnx2torch",
+    "tensorflow-cpu",
+    "tf2onnx",
+    "paddlepaddle",
+    "paddle2onnx",
+]
+
 [tool.setuptools.package-data]
 pyinfinitensor = ["*.so"]

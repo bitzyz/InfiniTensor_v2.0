@@ -3,3 +3,12 @@
 pytest
 numpy
 torch
+
+# Frontend format support (ONNX / TensorFlow / Paddle)
+onnx
+onnxscript
+onnx2torch
+tensorflow-cpu
+tf2onnx
+paddlepaddle
+paddle2onnx

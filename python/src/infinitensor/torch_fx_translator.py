@@ -11,9 +11,11 @@ from pyinfinitensor import (
 import torch
 from torch import fx
 from torch.export import export, Dim
-from typing import Callable, Dict, List, Tuple, Optional, Union
+from typing import Any, Callable, Dict, List, Tuple, Optional, Union
 from .converter import registry
+from .model_frontend import ModelFormat, load_model_as_torch
 import inspect
+import re
 
 
 class TorchFXTranslator:
@@ -146,16 +148,19 @@ class TorchFXTranslator:
     def _process_call_function(self, node):
         """Handle function call nodes"""
         target = node.target
+        func_name = str(target)
         if hasattr(target, "_overloadpacket"):
             op_name = str(target._overloadpacket).split(".")[-1]
             overload = target._overloadname
             function = registry.get_method_converter(op_name, overload)
+            func_name = f"{op_name}.{overload}" if overload else op_name
         else:
             if hasattr(target, "__name__"):
                 op_base_name = target.__name__
             else:
                 op_base_name = str(target)
             function = registry.get_method_converter(op_base_name)
+            func_name = op_base_name
         if function:
             try:
                 self.nodes_map[node] = function
@@ -300,6 +305,21 @@ class TorchFXTranslator:
                 raise ValueError(f"Unsupported node op: {node.op}")
 
         # print(self.builder.to_string())
+
+    def import_from_model_path(
+        self,
+        model_path: str,
+        input_list: List[torch.Tensor],
+        format_hint: Optional[Union[str, ModelFormat]] = None,
+        is_real_tensor: bool = False,
+    ):
+        """Import model from ONNX / TensorFlow / Paddle path via frontend loader."""
+        torch_model = load_model_as_torch(model_path, format_hint=format_hint)
+        return self.import_from_fx(
+            torch_model,
+            input_list,
+            is_real_tensor=is_real_tensor,
+        )
 
     def run(self, input_list: List[torch.Tensor]):
         """
